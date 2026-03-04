@@ -3,7 +3,6 @@ import { addPropertyControls, ControlType } from "framer"
 import {
     Search,
     RotateCcw,
-    ChevronRight,
     ChevronDown,
     X,
     CheckSquare,
@@ -114,6 +113,83 @@ function AutoHeight({
     )
 }
 
+
+declare global {
+    interface Window {
+        lottie?: any
+        __rsvpLottiePromise?: Promise<any>
+    }
+}
+
+function ensureLottiePlayer() {
+    if (typeof window === "undefined") return Promise.resolve(null)
+    if (window.lottie) return Promise.resolve(window.lottie)
+    if (window.__rsvpLottiePromise) return window.__rsvpLottiePromise
+
+    window.__rsvpLottiePromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script")
+        script.src =
+            "https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"
+        script.async = true
+        script.onload = () => resolve(window.lottie || null)
+        script.onerror = () => reject(new Error("Impossibile caricare Lottie"))
+        document.head.appendChild(script)
+    })
+
+    return window.__rsvpLottiePromise
+}
+
+function LottieLoader({
+    src,
+    maxSize = 70,
+}: {
+    src: string
+    maxSize?: number
+}) {
+    const mountRef = React.useRef<HTMLDivElement | null>(null)
+
+    React.useEffect(() => {
+        let destroyed = false
+        let animation: any = null
+
+        ensureLottiePlayer()
+            .then((lottie) => {
+                if (destroyed || !lottie || !mountRef.current || !src) return
+                mountRef.current.innerHTML = ""
+                animation = lottie.loadAnimation({
+                    container: mountRef.current,
+                    renderer: "svg",
+                    loop: true,
+                    autoplay: true,
+                    path: src,
+                    rendererSettings: {
+                        preserveAspectRatio: "xMidYMid meet",
+                    },
+                })
+            })
+            .catch(() => undefined)
+
+        return () => {
+            destroyed = true
+            if (animation) animation.destroy()
+        }
+    }, [src])
+
+    return (
+        <div
+            ref={mountRef}
+            style={{
+                width: Math.min(70, Math.max(24, maxSize)),
+                height: Math.min(70, Math.max(24, maxSize)),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto",
+            }}
+        />
+    )
+}
+
 export default function RSVPGoogleSheets(props: any) {
     const {
         // data + copy
@@ -145,9 +221,8 @@ export default function RSVPGoogleSheets(props: any) {
         searchGenericError,
         noResultsText,
         familyLoadErrorText,
-        loadingGroupTitle,
-        loadingGroupSubtitle,
         submitLoadingLabel,
+        searchLoaderLottieFile,
         submitGenericError,
         serverInvalidResponseError,
         noMoreInfoNeededText,
@@ -268,8 +343,8 @@ export default function RSVPGoogleSheets(props: any) {
               ? cardBorderWidth
               : 1
 
-    async function runSearch() {
-        const q = (query || "").trim()
+    async function runSearch(rawQuery?: string, showMinCharsError = true) {
+        const q = (rawQuery ?? query ?? "").trim()
         setSearchError(null)
         setSubmitted(false)
         setSubmitError(null)
@@ -279,7 +354,8 @@ export default function RSVPGoogleSheets(props: any) {
             return
         }
         if (q.length < 2) {
-            setSearchError(searchMinCharsError)
+            if (showMinCharsError) setSearchError(searchMinCharsError)
+            else setSearchError(null)
             setResults([])
             return
         }
@@ -303,6 +379,31 @@ export default function RSVPGoogleSheets(props: any) {
         }
         setSubmitStatus("idle")
     }
+
+    React.useEffect(() => {
+        if (selectedGuest) return
+        const q = (query || "").trim()
+
+        if (!q) {
+            setResults([])
+            setHasSearched(false)
+            setSearchError(null)
+            return
+        }
+
+        if (q.length < 2) {
+            setResults([])
+            setHasSearched(false)
+            setSearchError(null)
+            return
+        }
+
+        const id = window.setTimeout(() => {
+            runSearch(q, false)
+        }, 280)
+
+        return () => window.clearTimeout(id)
+    }, [query, endpointBase, selectedGuest])
 
     // LOAD FAMILY
     async function loadFamily(guest: Guest) {
@@ -527,6 +628,10 @@ export default function RSVPGoogleSheets(props: any) {
     const requiredMenu = requireMenuIfAttending
     const requiredAllergiesWhenAttending = true
     const requiredShuttleWhenAttending = showShuttle
+    const shouldOpenSearchDropdown =
+        !selectedGuest &&
+        !!query.trim() &&
+        (searchLoading || hasSearched || results.length > 0 || !!searchError)
 
     const s = {
         resultsScroll: {
@@ -728,7 +833,7 @@ export default function RSVPGoogleSheets(props: any) {
             gap: 10,
             padding: "26px 12px",
             borderRadius: inputRadius,
-            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            border: "none",
             background: "rgba(255,255,255,0.6)",
         },
 
@@ -739,6 +844,49 @@ export default function RSVPGoogleSheets(props: any) {
             border: "2px solid rgba(0,0,0,0.18)",
             borderTopColor: "rgba(0,0,0,0.7)",
             animation: "rsvpSpin 0.8s linear infinite",
+        },
+
+        searchInputWrap: {
+            position: "relative" as const,
+            flex: 1,
+        },
+
+        searchIconLeft: {
+            position: "absolute" as const,
+            left: 12,
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: mutedTextColor,
+            opacity: 0.9,
+            pointerEvents: "none" as const,
+        },
+
+        searchDropdown: {
+            marginTop: 10,
+            borderRadius: Math.max(16, Number(inputRadius) || 16),
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: inputBackground,
+            overflow: "hidden" as const,
+        },
+
+        searchDropdownBody: {
+            maxHeight: 340,
+            overflowY: "auto" as const,
+            WebkitOverflowScrolling: "touch" as const,
+            padding: 10,
+            boxSizing: "border-box" as const,
+        },
+
+        searchRow: {
+            ...(baseFontStyle || {}),
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            width: "100%",
+            padding: "12px 10px",
+            borderRadius: 10,
+            cursor: "pointer",
+            boxSizing: "border-box" as const,
         },
     } as const
 
@@ -808,10 +956,12 @@ export default function RSVPGoogleSheets(props: any) {
 
                 <div style={{ marginTop: 12 }}>
                     <div style={{ display: "flex", gap: 10 }}>
-                        <div style={{ position: "relative", flex: 1 }}>
+                        <div style={s.searchInputWrap}>
+                            <Search size={20} style={s.searchIconLeft} />
                             <input
                                 style={{
                                     ...s.input,
+                                    paddingLeft: 44,
                                     paddingRight: query.trim() ? 42 : toPx(inputPaddingX),
                                 }}
                                 value={query}
@@ -823,7 +973,7 @@ export default function RSVPGoogleSheets(props: any) {
                                 onKeyDown={(e) => {
                                     if (e.key === "Enter") {
                                         e.preventDefault()
-                                        runSearch()
+                                        runSearch(undefined, true)
                                     }
                                 }}
                             />
@@ -860,7 +1010,7 @@ export default function RSVPGoogleSheets(props: any) {
 
                         <button
                             style={isResetMode ? s.btnInlineGhost : s.btnInline}
-                            onClick={isResetMode ? resetAll : runSearch}
+                            onClick={isResetMode ? resetAll : () => runSearch(undefined, true)}
                             disabled={
                                 (!endpointBase && !isResetMode) ||
                                 searchLoading ||
@@ -872,9 +1022,7 @@ export default function RSVPGoogleSheets(props: any) {
                             }
                             title={isResetMode ? resetLabel : searchButtonLabel}
                         >
-                            {searchLoading ? (
-                                <div style={s.spinner} />
-                            ) : isResetMode ? (
+                            {isResetMode ? (
                                 <RotateCcw size={18} />
                             ) : (
                                 <Search size={18} />
@@ -883,53 +1031,61 @@ export default function RSVPGoogleSheets(props: any) {
                     </div>
 
                     <AutoHeight>
-                        {searchError ? (
-                            <div style={{ ...s.error, marginTop: 10 }}>
-                                {searchError}
-                            </div>
-                        ) : null}
-
-                        {!selectedGuest && results.length > 0 ? (
-                            <div style={{ marginTop: 10, ...s.resultsScroll }}>
-                                <div style={s.list}>
-                                    {results.map((g) => (
-                                        <div
-                                            key={g.guestId}
-                                            style={s.pill(false)}
-                                            onClick={() => loadFamily(g)}
-                                            role="button"
-                                            aria-label={`Seleziona ${g.name}`}
-                                        >
-                                            <div>
-                                                <div
-                                                    style={{
-                                                        ...(baseFontStyle || {}),
-                                                        fontSize: 14,
-                                                        fontWeight: 700,
-                                                    }}
-                                                >
-                                                    {g.name}
-                                                </div>
-                                            </div>
-
-                                            <ChevronRight
-                                                size={20}
-                                                style={{ opacity: 0.6 }}
-                                                aria-hidden="true"
-                                            />
+                        {shouldOpenSearchDropdown ? (
+                            <div style={s.searchDropdown}>
+                                <div style={s.searchDropdownBody}>
+                                    {searchLoading ? (
+                                        <div style={{ ...s.loadingState, marginTop: 0 }}>
+                                            <LottieLoader src={searchLoaderLottieFile} maxSize={70} />
                                         </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : null}
+                                    ) : null}
 
-                        {!selectedGuest &&
-                        hasSearched &&
-                        !searchLoading &&
-                        results.length === 0 &&
-                        !searchError ? (
-                            <div style={{ ...s.error, marginTop: 10 }}>
-                                {noResultsText}
+                                    {searchError ? (
+                                        <div style={{ ...s.error, marginTop: 0 }}>
+                                            {searchError}
+                                        </div>
+                                    ) : null}
+
+                                    {!searchLoading && !searchError && results.length > 0
+                                        ? results.map((g) => (
+                                              <div
+                                                  key={g.guestId}
+                                                  style={s.searchRow}
+                                                  onClick={() => loadFamily(g)}
+                                                  role="button"
+                                                  aria-label={`Seleziona ${g.name}`}
+                                              >
+                                                  <Search
+                                                      size={20}
+                                                      aria-hidden="true"
+                                                      style={{
+                                                          color: mutedTextColor,
+                                                          flexShrink: 0,
+                                                      }}
+                                                  />
+                                                  <div
+                                                      style={{
+                                                          ...(baseFontStyle || {}),
+                                                          fontSize: 15,
+                                                          fontWeight: 700,
+                                                          lineHeight: 1.3,
+                                                      }}
+                                                  >
+                                                      {g.name}
+                                                  </div>
+                                              </div>
+                                          ))
+                                        : null}
+
+                                    {!searchLoading &&
+                                    !searchError &&
+                                    hasSearched &&
+                                    results.length === 0 ? (
+                                        <div style={{ ...s.error, marginTop: 0 }}>
+                                            {noResultsText}
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
                         ) : null}
                     </AutoHeight>
@@ -956,19 +1112,7 @@ export default function RSVPGoogleSheets(props: any) {
                     <AutoHeight>
                         {familyLoading ? (
                             <div style={{ marginTop: 12, ...s.loadingState }}>
-                                <div style={s.spinner} />
-                                <div
-                                    style={{
-                                        ...(baseFontStyle || {}),
-                                        fontSize: 14,
-                                        fontWeight: 800,
-                                    }}
-                                >
-                                    {loadingGroupTitle}
-                                </div>
-                                <div style={s.small}>
-                                    {loadingGroupSubtitle}
-                                </div>
+                                <LottieLoader src={searchLoaderLottieFile} maxSize={70} />
                             </div>
                         ) : null}
 
@@ -1475,9 +1619,8 @@ RSVPGoogleSheets.defaultProps = {
     searchGenericError: "Errore durante la ricerca.",
     noResultsText: "Nessun risultato trovato. Prova con un altro nome.",
     familyLoadErrorText: "Errore nel caricamento del gruppo.",
-    loadingGroupTitle: "Sto caricando il tuo gruppo…",
-    loadingGroupSubtitle: "Un secondo e ti mostro le persone collegate.",
     submitLoadingLabel: "Invio…",
+    searchLoaderLottieFile: "",
     submitGenericError: "Errore durante l'invio.",
     serverInvalidResponseError: "Risposta non valida dal server.",
     noMoreInfoNeededText: "Ok — nessun’altra informazione necessaria.",
@@ -1665,9 +1808,12 @@ addPropertyControls(RSVPGoogleSheets, {
     searchGenericError: { type: ControlType.String, title: "Err. ricerca" },
     noResultsText: { type: ControlType.String, title: "Mess. no risultati" },
     familyLoadErrorText: { type: ControlType.String, title: "Err. caricamento gruppo" },
-    loadingGroupTitle: { type: ControlType.String, title: "Caricamento titolo" },
-    loadingGroupSubtitle: { type: ControlType.String, title: "Caricamento testo" },
     submitLoadingLabel: { type: ControlType.String, title: "Invio in corso" },
+    searchLoaderLottieFile: {
+        type: ControlType.File,
+        title: "Loader Lottie JSON",
+        allowedFileTypes: ["json"],
+    },
     submitGenericError: { type: ControlType.String, title: "Err. invio" },
     serverInvalidResponseError: {
         type: ControlType.String,
