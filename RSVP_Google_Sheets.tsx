@@ -80,7 +80,10 @@ function AutoHeight({
         const node = innerRef.current
         if (!node) return
 
-        const measure = () => setHeight(node.offsetHeight)
+        const measure = () => {
+            const next = Math.ceil(node.getBoundingClientRect().height) + 2
+            setHeight(next)
+        }
         measure()
 
         const ro = new ResizeObserver(() => measure())
