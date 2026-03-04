@@ -655,6 +655,7 @@ export default function RSVPGoogleSheets(props: any) {
     const requiredMenu = true
     const requiredAllergiesWhenAttending = true
     const requiredShuttleWhenAttending = showShuttle
+    const requiredPlaceholderLabel = " (Obbligatorio)"
     const shouldOpenSearchDropdown =
         !selectedGuest &&
         !!query.trim() &&
@@ -1257,8 +1258,6 @@ export default function RSVPGoogleSheets(props: any) {
                                         const shuttleIsRequired =
                                             isAttending &&
                                             requiredShuttleWhenAttending
-
-                                        const requiredPlaceholderLabel = " (Obbligatorio)"
 
                                         const menuPlaceholder = `${menuLabel}${
                                             menuIsRequired
