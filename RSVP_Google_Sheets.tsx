@@ -115,9 +115,7 @@ export default function RSVPGoogleSheets(props: any) {
         // ✅ STYLE PROPS
         font,
         titleFont, // font dedicata al titolo
-        titleTextAlign, // ✅ FIX: align del titolo via wrapper header
         selectPeopleLabelFont,
-        selectPeopleLabelTextAlign,
         textColor,
         mutedTextColor,
 
@@ -131,10 +129,6 @@ export default function RSVPGoogleSheets(props: any) {
         cardRadius,
         cardPadding,
 
-        titleSize,
-        titleWeight,
-        labelSize,
-        labelWeight,
 
         smallSize,
 
@@ -174,18 +168,9 @@ export default function RSVPGoogleSheets(props: any) {
     const titleFontStyle = (titleFont || {}) as React.CSSProperties
     const selectPeopleLabelFontStyle =
         (selectPeopleLabelFont || {}) as React.CSSProperties
-
-    // ✅ robust: applichiamo align a un wrapper full-width
     const headerAlign: React.CSSProperties["textAlign"] =
-        titleTextAlign === "center" || titleTextAlign === "right"
-            ? titleTextAlign
-            : "left"
+        (titleFontStyle.textAlign as React.CSSProperties["textAlign"]) || "left"
 
-    const selectPeopleAlign: React.CSSProperties["textAlign"] =
-        selectPeopleLabelTextAlign === "center" ||
-        selectPeopleLabelTextAlign === "right"
-            ? selectPeopleLabelTextAlign
-            : "left"
 
     function formatNameMessage(template: string, name: string) {
         return template.replace("{name}", name)
@@ -522,10 +507,7 @@ export default function RSVPGoogleSheets(props: any) {
         h1: {
             ...(baseFontStyle || {}),
             ...(titleFontStyle || {}),
-            fontSize: titleSize,
-            fontWeight: titleWeight,
             margin: 0,
-            lineHeight: 1.2,
             width: "100%",
             display: "block",
         } as React.CSSProperties,
@@ -865,7 +847,6 @@ export default function RSVPGoogleSheets(props: any) {
                             style={{
                                 ...(baseFontStyle || {}),
                                 ...(selectPeopleLabelFontStyle || {}),
-                                textAlign: selectPeopleAlign,
                                 marginTop: 4,
                                 marginBottom: 8,
                                 lineHeight: 1.2,
@@ -1418,14 +1399,12 @@ RSVPGoogleSheets.defaultProps = {
     requiredAsterisk: "*",
 
     // ✅ NEW
-    titleTextAlign: "left",
     titleFont: {
         fontSize: 18,
         variant: "Bold",
         letterSpacing: "0em",
         lineHeight: "1.2em",
     },
-    selectPeopleLabelTextAlign: "left",
     selectPeopleLabelFont: {
         fontSize: 16,
         variant: "Bold",
@@ -1452,12 +1431,6 @@ RSVPGoogleSheets.defaultProps = {
     cardBorderWidth: 1,
     cardRadius: 14,
     cardPadding: 14,
-
-    titleSize: 18,
-    titleWeight: 700,
-
-    labelSize: 12,
-    labelWeight: 700,
 
     smallSize: 12,
 
@@ -1506,14 +1479,6 @@ addPropertyControls(RSVPGoogleSheets, {
             lineHeight: "1.2em",
         },
     },
-    titleTextAlign: {
-        type: ControlType.Enum,
-        title: "Titolo · Align",
-        options: ["left", "center", "right"],
-        optionTitles: ["Left", "Center", "Right"],
-        defaultValue: "left",
-    },
-
     title: { type: ControlType.String, title: "Titolo" },
     selectPeopleLabelFont: {
         type: ControlType.Font,
@@ -1526,13 +1491,6 @@ addPropertyControls(RSVPGoogleSheets, {
             letterSpacing: "0em",
             lineHeight: "1.2em",
         },
-    },
-    selectPeopleLabelTextAlign: {
-        type: ControlType.Enum,
-        title: "Gruppo · Align",
-        options: ["left", "center", "right"],
-        optionTitles: ["Left", "Center", "Right"],
-        defaultValue: "left",
     },
     searchPlaceholder: {
         type: ControlType.String,
@@ -1708,34 +1666,6 @@ addPropertyControls(RSVPGoogleSheets, {
         step: 1,
     },
 
-    titleSize: {
-        type: ControlType.Number,
-        title: "Titolo size",
-        min: 10,
-        max: 40,
-        step: 1,
-    },
-    titleWeight: {
-        type: ControlType.Number,
-        title: "Titolo weight",
-        min: 100,
-        max: 900,
-        step: 50,
-    },
-    labelSize: {
-        type: ControlType.Number,
-        title: "Label size",
-        min: 10,
-        max: 24,
-        step: 1,
-    },
-    labelWeight: {
-        type: ControlType.Number,
-        title: "Label weight",
-        min: 100,
-        max: 900,
-        step: 50,
-    },
     smallSize: {
         type: ControlType.Number,
         title: "Small size",
