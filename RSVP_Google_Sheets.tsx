@@ -69,7 +69,6 @@ export default function RSVPGoogleSheets(props: any) {
         // data + copy
         endpointUrl,
         title,
-        subtitle,
         searchPlaceholder,
         showShuttle,
         requireMenuIfAttending,
@@ -90,14 +89,35 @@ export default function RSVPGoogleSheets(props: any) {
         shuttleYesText,
         shuttleNoText,
 
+        // service copy
+        endpointMissingText,
+        searchMinCharsError,
+        searchGenericError,
+        noResultsText,
+        familyLoadErrorText,
+        loadingGroupTitle,
+        loadingGroupSubtitle,
+        submitLoadingLabel,
+        submitGenericError,
+        serverInvalidResponseError,
+        noMoreInfoNeededText,
+        validateSelectGuestError,
+        validateSelectPeopleError,
+        validateIncompleteDataError,
+        validateAttendanceErrorTemplate,
+        validateMenuErrorTemplate,
+        validateAllergiesErrorTemplate,
+        validateShuttleErrorTemplate,
+
         // required fields UI
         requiredAsterisk,
-        requiredNote,
 
         // ✅ STYLE PROPS
         font,
         titleFont, // font dedicata al titolo
         titleTextAlign, // ✅ FIX: align del titolo via wrapper header
+        selectPeopleLabelFont,
+        selectPeopleLabelTextAlign,
         textColor,
         mutedTextColor,
 
@@ -113,8 +133,6 @@ export default function RSVPGoogleSheets(props: any) {
 
         titleSize,
         titleWeight,
-        subtitleSize,
-
         labelSize,
         labelWeight,
 
@@ -154,12 +172,24 @@ export default function RSVPGoogleSheets(props: any) {
 
     const baseFontStyle = (font || {}) as React.CSSProperties
     const titleFontStyle = (titleFont || {}) as React.CSSProperties
+    const selectPeopleLabelFontStyle =
+        (selectPeopleLabelFont || {}) as React.CSSProperties
 
     // ✅ robust: applichiamo align a un wrapper full-width
     const headerAlign: React.CSSProperties["textAlign"] =
         titleTextAlign === "center" || titleTextAlign === "right"
             ? titleTextAlign
             : "left"
+
+    const selectPeopleAlign: React.CSSProperties["textAlign"] =
+        selectPeopleLabelTextAlign === "center" ||
+        selectPeopleLabelTextAlign === "right"
+            ? selectPeopleLabelTextAlign
+            : "left"
+
+    function formatNameMessage(template: string, name: string) {
+        return template.replace("{name}", name)
+    }
 
     const [query, setQuery] = React.useState("")
 
@@ -211,7 +241,7 @@ export default function RSVPGoogleSheets(props: any) {
             return
         }
         if (q.length < 2) {
-            setSearchError("Scrivi almeno 2 caratteri.")
+            setSearchError(searchMinCharsError)
             setResults([])
             return
         }
@@ -228,7 +258,7 @@ export default function RSVPGoogleSheets(props: any) {
             const data = await fetchJson(url, { method: "GET" })
             setResults(Array.isArray(data?.results) ? data.results : [])
         } catch (e: any) {
-            setSearchError(e?.message || "Errore durante la ricerca.")
+            setSearchError(e?.message || searchGenericError)
             setResults([])
         } finally {
             setSearchLoading(false)
@@ -285,7 +315,7 @@ export default function RSVPGoogleSheets(props: any) {
             }
             setAnswers(next)
         } catch (e: any) {
-            setFamilyError(e?.message || "Errore nel caricamento del gruppo.")
+            setFamilyError(e?.message || familyLoadErrorText)
             setFamilyMembers([])
             setSelectedMemberIds(new Set())
             setAnswers({})
@@ -339,28 +369,28 @@ export default function RSVPGoogleSheets(props: any) {
     )
 
     function validate(): string | null {
-        if (!selectedGuest) return "Seleziona prima un invitato."
+        if (!selectedGuest) return validateSelectGuestError
         const chosen = Array.from(selectedMemberIds)
-        if (chosen.length === 0) return "Seleziona almeno una persona."
+        if (chosen.length === 0) return validateSelectPeopleError
 
         for (const id of chosen) {
             const a = answers[id]
-            if (!a) return "Dati incompleti: riprova."
+            if (!a) return validateIncompleteDataError
             if (a.attending === null)
-                return `Seleziona la presenza per ${a.name}.`
+                return formatNameMessage(validateAttendanceErrorTemplate, a.name)
 
             if (a.attending === false) continue
 
             if (requireMenuIfAttending && !a.menu.trim()) {
-                return `Scegli un menu per ${a.name}.`
+                return formatNameMessage(validateMenuErrorTemplate, a.name)
             }
 
             if (!a.allergies.trim()) {
-                return `Compila “Allergie / Intolleranze” per ${a.name} (se non ci sono, scrivi “Nessuna”).`
+                return formatNameMessage(validateAllergiesErrorTemplate, a.name)
             }
 
             if (showShuttle && a.shuttle === null) {
-                return `Seleziona “Bus navetta” (Sì/No) per ${a.name}.`
+                return formatNameMessage(validateShuttleErrorTemplate, a.name)
             }
         }
         return null
@@ -417,7 +447,7 @@ export default function RSVPGoogleSheets(props: any) {
             }
 
             if (text && !parsed.ok) {
-                throw new Error("Risposta non valida dal server.")
+                throw new Error(serverInvalidResponseError)
             }
 
             setSubmitted(true)
@@ -426,7 +456,7 @@ export default function RSVPGoogleSheets(props: any) {
         } catch (e: any) {
             setSubmitted(false)
             setSubmitStatus("error")
-            setSubmitError(e?.message || "Errore durante l'invio.")
+            setSubmitError(e?.message || submitGenericError)
         } finally {
             setSubmitLoading(false)
         }
@@ -496,16 +526,6 @@ export default function RSVPGoogleSheets(props: any) {
             fontWeight: titleWeight,
             margin: 0,
             lineHeight: 1.2,
-            width: "100%",
-            display: "block",
-        } as React.CSSProperties,
-
-        p: {
-            ...(baseFontStyle || {}),
-            fontSize: subtitleSize,
-            margin: "6px 0 0 0",
-            color: mutedTextColor,
-            lineHeight: 1.35,
             width: "100%",
             display: "block",
         } as React.CSSProperties,
@@ -676,13 +696,6 @@ export default function RSVPGoogleSheets(props: any) {
             borderTopColor: "rgba(0,0,0,0.7)",
             animation: "rsvpSpin 0.8s linear infinite",
         },
-
-        requiredNoteStyle: {
-            ...(baseFontStyle || {}),
-            fontSize: smallSize,
-            color: mutedTextColor,
-            marginTop: 10,
-        },
     } as const
 
     const spinnerCss = `
@@ -740,13 +753,12 @@ export default function RSVPGoogleSheets(props: any) {
                 {/* ✅ header wrapper con align */}
                 <div style={s.header}>
                     <h1 style={s.h1}>{title}</h1>
-                    {subtitle ? <p style={s.p}>{subtitle}</p> : null}
+                    
                 </div>
 
                 {!endpointBase ? (
                     <div style={{ ...s.error, marginTop: 10 }}>
-                        Inserisci <b>endpointUrl</b> (URL Web App di Apps
-                        Script) nelle proprietà del componente in Framer.
+                        {endpointMissingText}
                     </div>
                 ) : null}
 
@@ -839,7 +851,7 @@ export default function RSVPGoogleSheets(props: any) {
                     results.length === 0 &&
                     !searchError ? (
                         <div style={{ ...s.error, marginTop: 10 }}>
-                            Nessun risultato trovato. Prova con un altro nome.
+                            {noResultsText}
                         </div>
                     ) : null}
                 </div>
@@ -852,8 +864,8 @@ export default function RSVPGoogleSheets(props: any) {
                         <div
                             style={{
                                 ...(baseFontStyle || {}),
-                                fontSize: titleSize - 2,
-                                fontWeight: titleWeight,
+                                ...(selectPeopleLabelFontStyle || {}),
+                                textAlign: selectPeopleAlign,
                                 marginTop: 4,
                                 marginBottom: 8,
                                 lineHeight: 1.2,
@@ -873,10 +885,10 @@ export default function RSVPGoogleSheets(props: any) {
                                     fontWeight: 800,
                                 }}
                             >
-                                Sto caricando il tuo gruppo…
+                                {loadingGroupTitle}
                             </div>
                             <div style={s.small}>
-                                Un secondo e ti mostro le persone collegate.
+                                {loadingGroupSubtitle}
                             </div>
                         </div>
                     ) : null}
@@ -1319,28 +1331,12 @@ export default function RSVPGoogleSheets(props: any) {
                                                             ...s.small,
                                                         }}
                                                     >
-                                                        Ok — nessun’altra
-                                                        informazione necessaria.
+                                                        {noMoreInfoNeededText}
                                                     </div>
                                                 )}
                                             </div>
                                         )
                                     })}
-
-                                    <div style={s.requiredNoteStyle}>
-                                        <span
-                                            style={{
-                                                ...(baseFontStyle || {}),
-                                                color: errorTextColor,
-                                                fontWeight: 800,
-                                                marginRight: 6,
-                                            }}
-                                            aria-hidden="true"
-                                        >
-                                            {requiredAsterisk}
-                                        </span>
-                                        {requiredNote}
-                                    </div>
 
                                     {submitError ? (
                                         <div
@@ -1358,7 +1354,7 @@ export default function RSVPGoogleSheets(props: any) {
                                         onClick={submit}
                                         disabled={submitLoading}
                                     >
-                                        {submitLoading ? "Invio…" : submitLabel}
+                                        {submitLoading ? submitLoadingLabel : submitLabel}
                                     </button>
                                 </>
                             )}
@@ -1372,8 +1368,6 @@ export default function RSVPGoogleSheets(props: any) {
 
 RSVPGoogleSheets.defaultProps = {
     title: "Conferma la tua presenza",
-    subtitle:
-        "Cerca il tuo nome, seleziona le persone del tuo gruppo e compila in pochi secondi.",
     searchPlaceholder: "Cerca il tuo nome…",
     endpointUrl: "",
     showShuttle: true,
@@ -1395,16 +1389,45 @@ RSVPGoogleSheets.defaultProps = {
     resetLabel: "Ricomincia",
     searchButtonLabel: "Cerca",
 
+    endpointMissingText:
+        "Inserisci endpointUrl (URL Web App di Apps Script) nelle proprietà del componente in Framer.",
+    searchMinCharsError: "Scrivi almeno 2 caratteri.",
+    searchGenericError: "Errore durante la ricerca.",
+    noResultsText: "Nessun risultato trovato. Prova con un altro nome.",
+    familyLoadErrorText: "Errore nel caricamento del gruppo.",
+    loadingGroupTitle: "Sto caricando il tuo gruppo…",
+    loadingGroupSubtitle: "Un secondo e ti mostro le persone collegate.",
+    submitLoadingLabel: "Invio…",
+    submitGenericError: "Errore durante l'invio.",
+    serverInvalidResponseError: "Risposta non valida dal server.",
+    noMoreInfoNeededText: "Ok — nessun’altra informazione necessaria.",
+
+    validateSelectGuestError: "Seleziona prima un invitato.",
+    validateSelectPeopleError: "Seleziona almeno una persona.",
+    validateIncompleteDataError: "Dati incompleti: riprova.",
+    validateAttendanceErrorTemplate: "Seleziona la presenza per {name}.",
+    validateMenuErrorTemplate: "Scegli un menu per {name}.",
+    validateAllergiesErrorTemplate:
+        "Compila “Allergie / Intolleranze” per {name} (se non ci sono, scrivi “Nessuna”).",
+    validateShuttleErrorTemplate:
+        "Seleziona “Bus navetta” (Sì/No) per {name}.",
+
     commonBorderColor: "rgba(0,0,0,0.12)",
     commonBorderWidth: 1,
 
     requiredAsterisk: "*",
-    requiredNote: "Campo obbligatorio.",
 
     // ✅ NEW
     titleTextAlign: "left",
     titleFont: {
         fontSize: 18,
+        variant: "Bold",
+        letterSpacing: "0em",
+        lineHeight: "1.2em",
+    },
+    selectPeopleLabelTextAlign: "left",
+    selectPeopleLabelFont: {
+        fontSize: 16,
         variant: "Bold",
         letterSpacing: "0em",
         lineHeight: "1.2em",
@@ -1432,7 +1455,6 @@ RSVPGoogleSheets.defaultProps = {
 
     titleSize: 18,
     titleWeight: 700,
-    subtitleSize: 13,
 
     labelSize: 12,
     labelWeight: 700,
@@ -1493,7 +1515,25 @@ addPropertyControls(RSVPGoogleSheets, {
     },
 
     title: { type: ControlType.String, title: "Titolo" },
-    subtitle: { type: ControlType.String, title: "Sottotitolo" },
+    selectPeopleLabelFont: {
+        type: ControlType.Font,
+        title: "Gruppo · Font",
+        controls: "extended",
+        defaultFontType: "sans-serif",
+        defaultValue: {
+            fontSize: 16,
+            variant: "Bold",
+            letterSpacing: "0em",
+            lineHeight: "1.2em",
+        },
+    },
+    selectPeopleLabelTextAlign: {
+        type: ControlType.Enum,
+        title: "Gruppo · Align",
+        options: ["left", "center", "right"],
+        optionTitles: ["Left", "Center", "Right"],
+        defaultValue: "left",
+    },
     searchPlaceholder: {
         type: ControlType.String,
         title: "Placeholder ricerca",
@@ -1542,6 +1582,56 @@ addPropertyControls(RSVPGoogleSheets, {
     searchButtonLabel: { type: ControlType.String, title: "Testo Cerca" },
     resetLabel: { type: ControlType.String, title: "Testo Ricomincia" },
 
+    endpointMissingText: {
+        type: ControlType.String,
+        title: "Mess. endpoint mancante",
+    },
+    searchMinCharsError: { type: ControlType.String, title: "Err. ricerca corta" },
+    searchGenericError: { type: ControlType.String, title: "Err. ricerca" },
+    noResultsText: { type: ControlType.String, title: "Mess. no risultati" },
+    familyLoadErrorText: { type: ControlType.String, title: "Err. caricamento gruppo" },
+    loadingGroupTitle: { type: ControlType.String, title: "Caricamento titolo" },
+    loadingGroupSubtitle: { type: ControlType.String, title: "Caricamento testo" },
+    submitLoadingLabel: { type: ControlType.String, title: "Invio in corso" },
+    submitGenericError: { type: ControlType.String, title: "Err. invio" },
+    serverInvalidResponseError: {
+        type: ControlType.String,
+        title: "Err. risposta server",
+    },
+    noMoreInfoNeededText: {
+        type: ControlType.String,
+        title: "Mess. nessuna info",
+    },
+
+    validateSelectGuestError: {
+        type: ControlType.String,
+        title: "Err. seleziona invitato",
+    },
+    validateSelectPeopleError: {
+        type: ControlType.String,
+        title: "Err. seleziona persone",
+    },
+    validateIncompleteDataError: {
+        type: ControlType.String,
+        title: "Err. dati incompleti",
+    },
+    validateAttendanceErrorTemplate: {
+        type: ControlType.String,
+        title: "Err. presenza ({name})",
+    },
+    validateMenuErrorTemplate: {
+        type: ControlType.String,
+        title: "Err. menu ({name})",
+    },
+    validateAllergiesErrorTemplate: {
+        type: ControlType.String,
+        title: "Err. allergie ({name})",
+    },
+    validateShuttleErrorTemplate: {
+        type: ControlType.String,
+        title: "Err. navetta ({name})",
+    },
+
     commonBorderColor: {
         type: ControlType.Color,
         title: "Border (global) color",
@@ -1559,12 +1649,6 @@ addPropertyControls(RSVPGoogleSheets, {
         title: "Asterisco obblig.",
         defaultValue: "*",
     },
-    requiredNote: {
-        type: ControlType.String,
-        title: "Nota obbligatori",
-        defaultValue: "Campo obbligatorio.",
-    },
-
     font: {
         type: ControlType.Font,
         title: "Font",
@@ -1638,14 +1722,6 @@ addPropertyControls(RSVPGoogleSheets, {
         max: 900,
         step: 50,
     },
-    subtitleSize: {
-        type: ControlType.Number,
-        title: "Sottotitolo size",
-        min: 10,
-        max: 24,
-        step: 1,
-    },
-
     labelSize: {
         type: ControlType.Number,
         title: "Label size",
