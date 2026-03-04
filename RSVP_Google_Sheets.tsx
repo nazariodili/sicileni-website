@@ -236,7 +236,6 @@ export default function RSVPGoogleSheets(props: any) {
         validateShuttleErrorTemplate,
 
         // required fields UI
-        requiredAsterisk,
 
         // ✅ STYLE PROPS
         font,
@@ -1259,15 +1258,17 @@ export default function RSVPGoogleSheets(props: any) {
                                             isAttending &&
                                             requiredShuttleWhenAttending
 
+                                        const requiredPlaceholderLabel = " (Obbligatorio)"
+
                                         const menuPlaceholder = `${menuLabel}${
                                             menuIsRequired
-                                                ? requiredAsterisk
+                                                ? requiredPlaceholderLabel
                                                 : ""
                                         }…`
 
                                         const allergiesPlaceholder = `${allergiesLabel}${
                                             allergiesIsRequired
-                                                ? requiredAsterisk
+                                                ? requiredPlaceholderLabel
                                                 : ""
                                         } (se nessuna, scrivi “Nessuna”)`
 
@@ -1633,6 +1634,7 @@ export default function RSVPGoogleSheets(props: any) {
                                             style={{
                                                 ...s.error,
                                                 marginTop: 10,
+                                                marginBottom: 10,
                                             }}
                                         >
                                             {submitError}
@@ -1735,7 +1737,6 @@ RSVPGoogleSheets.defaultProps = {
     commonBorderColor: "rgba(0,0,0,0.12)",
     commonBorderWidth: 1,
 
-    requiredAsterisk: "*",
 
     // ✅ NEW
     titleFont: {
@@ -1967,11 +1968,6 @@ addPropertyControls(RSVPGoogleSheets, {
         step: 1,
     },
 
-    requiredAsterisk: {
-        type: ControlType.String,
-        title: "Asterisco obblig.",
-        defaultValue: "*",
-    },
     font: {
         type: ControlType.Font,
         title: "Font",
