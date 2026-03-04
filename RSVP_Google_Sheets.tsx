@@ -237,6 +237,7 @@ export default function RSVPGoogleSheets(props: any) {
 
         // required fields UI
         requiredPlaceholderLabel,
+        optionalPlaceholderLabel,
 
         // ✅ STYLE PROPS
         font,
@@ -1271,7 +1272,7 @@ export default function RSVPGoogleSheets(props: any) {
                                                 : ""
                                         }`
 
-                                        const notesPlaceholder = `${notesLabel} (opzionale)`
+                                        const notesPlaceholder = `${notesLabel}${optionalPlaceholderLabel}`
 
                                         return (
                                             <div
@@ -1702,6 +1703,7 @@ RSVPGoogleSheets.defaultProps = {
     menuLabel: "Menu",
     allergiesLabel: "Allergie / Intolleranze",
     requiredPlaceholderLabel: " (Obbligatorio)",
+    optionalPlaceholderLabel: " (opzionale)",
     shuttleLabel: "Voglio il bus navetta",
     notesLabel: "Note",
     selectPeopleLabel: "Seleziona chi fa parte del tuo gruppo",
@@ -1890,6 +1892,10 @@ addPropertyControls(RSVPGoogleSheets, {
     requiredPlaceholderLabel: {
         type: ControlType.String,
         title: "Label obbligatorio",
+    },
+    optionalPlaceholderLabel: {
+        type: ControlType.String,
+        title: "Label opzionale",
     },
     shuttleLabel: { type: ControlType.String, title: "Label navetta" },
     notesLabel: { type: ControlType.String, title: "Label note" },
