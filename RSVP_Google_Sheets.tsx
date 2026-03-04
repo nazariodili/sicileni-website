@@ -1,0 +1,1739 @@
+import * as React from "react"
+import { addPropertyControls, ControlType } from "framer"
+import {
+    Search,
+    RotateCcw,
+    ChevronRight,
+    ChevronDown,
+    CheckSquare,
+    Square,
+    CheckCircle2,
+    Circle,
+} from "lucide-react"
+
+/**
+ * RSVP – Google Sheets (Apps Script) – Framer Code Component
+ * - Manual search guests by name (button "Cerca")
+ * - Load family/group
+ * - Fill RSVP for multiple people
+ * - Submit -> POST to Apps Script (writes sheet + sends email)
+ *
+ * Requires Apps Script to implement doGet (search + family) and doPost (save + email)
+ */
+
+type Guest = {
+    guestId: string
+    familyId: string
+    name: string
+}
+
+type PersonAnswer = {
+    guestId: string
+    name: string
+    attending: boolean | null
+    menu: string
+    allergies: string
+    shuttle: boolean | null
+    notes: string
+}
+
+function safeJsonParse(text: string) {
+    try {
+        return { ok: true as const, data: JSON.parse(text) }
+    } catch (e: any) {
+        return { ok: false as const, error: e?.message || "Invalid JSON" }
+    }
+}
+
+async function fetchJson(url: string, init?: RequestInit) {
+    const res = await fetch(url, init)
+    const text = await res.text()
+    const parsed = safeJsonParse(text)
+
+    if (!res.ok) {
+        const msg =
+            (parsed.ok && (parsed.data?.error || parsed.data?.message)) ||
+            `HTTP ${res.status}`
+        throw new Error(msg)
+    }
+    if (!parsed.ok) throw new Error("La risposta non è JSON valido.")
+    return parsed.data
+}
+
+function toPx(n: number) {
+    return `${Math.max(0, Number(n) || 0)}px`
+}
+
+export default function RSVPGoogleSheets(props: any) {
+    const {
+        // data + copy
+        endpointUrl,
+        title,
+        subtitle,
+        searchPlaceholder,
+        showShuttle,
+        requireMenuIfAttending,
+        menuOptions,
+        attendingLabel,
+        yesLabel,
+        noLabel,
+        menuLabel,
+        allergiesLabel,
+        shuttleLabel,
+        notesLabel,
+        selectPeopleLabel,
+        submitLabel,
+        successTitle,
+        successSubtitle,
+        resetLabel,
+        searchButtonLabel,
+        shuttleYesText,
+        shuttleNoText,
+
+        // required fields UI
+        requiredAsterisk,
+        requiredNote,
+
+        // ✅ STYLE PROPS
+        font,
+        titleFont, // font dedicata al titolo
+        titleTextAlign, // ✅ FIX: align del titolo via wrapper header
+        textColor,
+        mutedTextColor,
+
+        wrapBackground,
+        wrapPadding,
+        wrapGap,
+
+        cardBackground,
+        cardBorderColor,
+        cardBorderWidth,
+        cardRadius,
+        cardPadding,
+
+        titleSize,
+        titleWeight,
+        subtitleSize,
+
+        labelSize,
+        labelWeight,
+
+        smallSize,
+
+        inputBackground,
+        inputTextColor,
+        inputBorderColor,
+        inputRadius,
+        inputPaddingX,
+        inputPaddingY,
+
+        commonBorderColor,
+        commonBorderWidth,
+
+        selectBackground,
+
+        buttonRadius,
+        buttonPrimaryBackground,
+        buttonPrimaryTextColor,
+        buttonGhostBackground,
+        buttonGhostTextColor,
+        buttonBorderColor,
+        buttonFontSize,
+        buttonFontWeight,
+
+        dividerColor,
+
+        errorTextColor,
+        errorBackground,
+        errorBorderColor,
+
+        successTextColor,
+        successBackground,
+        successBorderColor,
+    } = props
+
+    const baseFontStyle = (font || {}) as React.CSSProperties
+    const titleFontStyle = (titleFont || {}) as React.CSSProperties
+
+    // ✅ robust: applichiamo align a un wrapper full-width
+    const headerAlign: React.CSSProperties["textAlign"] =
+        titleTextAlign === "center" || titleTextAlign === "right"
+            ? titleTextAlign
+            : "left"
+
+    const [query, setQuery] = React.useState("")
+
+    const [searchLoading, setSearchLoading] = React.useState(false)
+    const [searchError, setSearchError] = React.useState<string | null>(null)
+    const [results, setResults] = React.useState<Guest[]>([])
+    const [hasSearched, setHasSearched] = React.useState(false)
+
+    const [selectedGuest, setSelectedGuest] = React.useState<Guest | null>(null)
+
+    const [familyLoading, setFamilyLoading] = React.useState(false)
+    const [familyError, setFamilyError] = React.useState<string | null>(null)
+    const [familyMembers, setFamilyMembers] = React.useState<Guest[]>([])
+    const [selectedMemberIds, setSelectedMemberIds] = React.useState<
+        Set<string>
+    >(new Set())
+
+    const [answers, setAnswers] = React.useState<Record<string, PersonAnswer>>(
+        {}
+    )
+
+    const [submitLoading, setSubmitLoading] = React.useState(false)
+    const [submitError, setSubmitError] = React.useState<string | null>(null)
+    const [submitted, setSubmitted] = React.useState(false)
+    const [submitStatus, setSubmitStatus] = React.useState<
+        "idle" | "loading" | "success" | "error"
+    >("idle")
+
+    const isResetMode = submitted || selectedGuest || hasSearched
+    const endpointBase = (endpointUrl || "").trim()
+
+    const UI_BORDER_COLOR =
+        commonBorderColor ?? inputBorderColor ?? cardBorderColor
+    const UI_BORDER_WIDTH =
+        typeof commonBorderWidth === "number"
+            ? commonBorderWidth
+            : typeof cardBorderWidth === "number"
+              ? cardBorderWidth
+              : 1
+
+    async function runSearch() {
+        const q = (query || "").trim()
+        setSearchError(null)
+        setSubmitted(false)
+        setSubmitError(null)
+
+        if (!endpointBase) {
+            setResults([])
+            return
+        }
+        if (q.length < 2) {
+            setSearchError("Scrivi almeno 2 caratteri.")
+            setResults([])
+            return
+        }
+
+        try {
+            setSearchLoading(true)
+            setHasSearched(true)
+
+            const url =
+                endpointBase +
+                (endpointBase.includes("?") ? "&" : "?") +
+                `action=search&q=${encodeURIComponent(q)}`
+
+            const data = await fetchJson(url, { method: "GET" })
+            setResults(Array.isArray(data?.results) ? data.results : [])
+        } catch (e: any) {
+            setSearchError(e?.message || "Errore durante la ricerca.")
+            setResults([])
+        } finally {
+            setSearchLoading(false)
+        }
+        setSubmitStatus("idle")
+    }
+
+    // LOAD FAMILY
+    async function loadFamily(guest: Guest) {
+        setSelectedGuest(guest)
+        setResults([]) // nasconde subito la lista
+        setFamilyError(null)
+        setSubmitted(false)
+        setSubmitError(null)
+        setSubmitStatus("idle")
+
+        try {
+            setFamilyLoading(true)
+            const url =
+                endpointBase +
+                (endpointBase.includes("?") ? "&" : "?") +
+                `action=family&familyId=${encodeURIComponent(guest.familyId)}`
+
+            const data = await fetchJson(url, { method: "GET" })
+            const members: Guest[] = Array.isArray(data?.members)
+                ? data.members
+                : []
+
+            setFamilyMembers(members)
+
+            // ✅ Default: select ONLY the clicked guest (not all family)
+            const clickedIsInMembers = members.some(
+                (m) => m.guestId === guest.guestId
+            )
+
+            const setIds = new Set<string>()
+            if (clickedIsInMembers) setIds.add(guest.guestId)
+            else if (members[0]) setIds.add(members[0].guestId)
+
+            setSelectedMemberIds(setIds)
+
+            // Initialize answers
+            const next: Record<string, PersonAnswer> = {}
+            for (const m of members) {
+                next[m.guestId] = {
+                    guestId: m.guestId,
+                    name: m.name,
+                    attending: null,
+                    menu: "",
+                    allergies: "",
+                    shuttle: null,
+                    notes: "",
+                }
+            }
+            setAnswers(next)
+        } catch (e: any) {
+            setFamilyError(e?.message || "Errore nel caricamento del gruppo.")
+            setFamilyMembers([])
+            setSelectedMemberIds(new Set())
+            setAnswers({})
+        } finally {
+            setFamilyLoading(false)
+        }
+    }
+
+    function toggleMember(id: string) {
+        setSelectedMemberIds((prev) => {
+            const next = new Set(prev)
+            if (next.has(id)) next.delete(id)
+            else next.add(id)
+            return next
+        })
+        setSubmitStatus("idle")
+        setSubmitted(false)
+    }
+
+    function updateAnswer(id: string, patch: Partial<PersonAnswer>) {
+        setAnswers((prev) => ({
+            ...prev,
+            [id]: {
+                ...(prev[id] || {
+                    guestId: id,
+                    name: "",
+                    attending: null,
+                    menu: "",
+                    allergies: "",
+                    shuttle: null,
+                    notes: "",
+                }),
+                ...patch,
+            },
+        }))
+        setSubmitStatus("idle")
+        setSubmitError(null)
+        setSubmitted(false)
+    }
+
+    function parseMenuOptions(raw: string): string[] {
+        return (raw || "")
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean)
+    }
+
+    const menuList = React.useMemo(
+        () => parseMenuOptions(menuOptions),
+        [menuOptions]
+    )
+
+    function validate(): string | null {
+        if (!selectedGuest) return "Seleziona prima un invitato."
+        const chosen = Array.from(selectedMemberIds)
+        if (chosen.length === 0) return "Seleziona almeno una persona."
+
+        for (const id of chosen) {
+            const a = answers[id]
+            if (!a) return "Dati incompleti: riprova."
+            if (a.attending === null)
+                return `Seleziona la presenza per ${a.name}.`
+
+            if (a.attending === false) continue
+
+            if (requireMenuIfAttending && !a.menu.trim()) {
+                return `Scegli un menu per ${a.name}.`
+            }
+
+            if (!a.allergies.trim()) {
+                return `Compila “Allergie / Intolleranze” per ${a.name} (se non ci sono, scrivi “Nessuna”).`
+            }
+
+            if (showShuttle && a.shuttle === null) {
+                return `Seleziona “Bus navetta” (Sì/No) per ${a.name}.`
+            }
+        }
+        return null
+    }
+
+    async function submit() {
+        setSubmitError(null)
+        const v = validate()
+        if (v) {
+            setSubmitError(v)
+            setSubmitStatus("error")
+            return
+        }
+        if (!selectedGuest) return
+
+        const people = Array.from(selectedMemberIds).map((id) => {
+            const a = answers[id]
+            return {
+                guestId: a.guestId,
+                name: a.name,
+                attending: !!a.attending,
+                menu: a.menu || "",
+                allergies: a.allergies || "",
+                shuttle: !!a.shuttle,
+                notes: a.notes || "",
+            }
+        })
+
+        const payload = {
+            familyId: selectedGuest.familyId,
+            submittedBy: selectedGuest.name,
+            people,
+        }
+
+        try {
+            setSubmitLoading(true)
+            setSubmitStatus("loading")
+
+            const res = await fetch(endpointBase, {
+                method: "POST",
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify(payload),
+            })
+
+            const text = await res.text()
+            const parsed = safeJsonParse(text)
+
+            if (!res.ok) {
+                const msg =
+                    (parsed.ok &&
+                        (parsed.data?.error || parsed.data?.message)) ||
+                    `HTTP ${res.status}`
+                throw new Error(msg)
+            }
+
+            if (text && !parsed.ok) {
+                throw new Error("Risposta non valida dal server.")
+            }
+
+            setSubmitted(true)
+            setSubmitStatus("success")
+            setResults([])
+        } catch (e: any) {
+            setSubmitted(false)
+            setSubmitStatus("error")
+            setSubmitError(e?.message || "Errore durante l'invio.")
+        } finally {
+            setSubmitLoading(false)
+        }
+    }
+
+    function resetAll() {
+        setQuery("")
+        setResults([])
+        setSearchError(null)
+        setHasSearched(false)
+        setSelectedGuest(null)
+        setFamilyMembers([])
+        setSelectedMemberIds(new Set())
+        setAnswers({})
+        setSubmitted(false)
+        setSubmitError(null)
+        setFamilyError(null)
+        setSubmitStatus("idle")
+    }
+
+    const requiredMenu = requireMenuIfAttending
+    const requiredAllergiesWhenAttending = true
+    const requiredShuttleWhenAttending = showShuttle
+
+    const s = {
+        resultsScroll: {
+            maxHeight: 260,
+            overflowY: "auto" as const,
+            WebkitOverflowScrolling: "touch" as const,
+            paddingRight: 4,
+        },
+
+        wrap: {
+            ...(baseFontStyle || {}),
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column" as const,
+            gap: typeof wrapGap === "number" ? wrapGap : 12,
+            padding: `${(wrapPadding?.top ?? 16) as number}px ${
+                (wrapPadding?.right ?? 16) as number
+            }px ${(wrapPadding?.bottom ?? 16) as number}px ${
+                (wrapPadding?.left ?? 16) as number
+            }px`,
+            boxSizing: "border-box" as const,
+            color: textColor,
+            background: wrapBackground,
+        },
+
+        card: {
+            borderRadius: cardRadius,
+            padding: cardPadding,
+            boxSizing: "border-box" as const,
+            background: cardBackground,
+        },
+
+        // ✅ FIX: wrapper header allineabile
+        header: {
+            width: "100%",
+            textAlign: headerAlign,
+        } as React.CSSProperties,
+
+        h1: {
+            ...(baseFontStyle || {}),
+            ...(titleFontStyle || {}),
+            fontSize: titleSize,
+            fontWeight: titleWeight,
+            margin: 0,
+            lineHeight: 1.2,
+            width: "100%",
+            display: "block",
+        } as React.CSSProperties,
+
+        p: {
+            ...(baseFontStyle || {}),
+            fontSize: subtitleSize,
+            margin: "6px 0 0 0",
+            color: mutedTextColor,
+            lineHeight: 1.35,
+            width: "100%",
+            display: "block",
+        } as React.CSSProperties,
+
+        small: {
+            ...(baseFontStyle || {}),
+            fontSize: smallSize,
+            color: mutedTextColor,
+        },
+
+        input: {
+            ...(baseFontStyle || {}),
+            width: "100%",
+            fontSize: 16,
+            padding: `${toPx(inputPaddingY)} ${toPx(inputPaddingX)}`,
+            borderRadius: inputRadius,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            outline: "none",
+            boxSizing: "border-box" as const,
+            background: inputBackground,
+            color: inputTextColor,
+        },
+
+        select: {
+            ...(baseFontStyle || {}),
+            width: "100%",
+            fontSize: 16,
+            padding: `${toPx(inputPaddingY)} ${toPx(inputPaddingX)}`,
+            paddingRight: 44,
+            borderRadius: inputRadius,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: selectBackground,
+            color: inputTextColor,
+            boxSizing: "border-box" as const,
+            appearance: "none" as const,
+            WebkitAppearance: "none" as const,
+            MozAppearance: "none" as const,
+        },
+
+        textarea: {
+            ...(baseFontStyle || {}),
+            width: "100%",
+            fontSize: 16,
+            padding: `${toPx(inputPaddingY)} ${toPx(inputPaddingX)}`,
+            borderRadius: inputRadius,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            minHeight: 80,
+            resize: "vertical" as const,
+            boxSizing: "border-box" as const,
+            background: inputBackground,
+            color: inputTextColor,
+        },
+
+        list: { display: "flex", flexDirection: "column" as const, gap: 8 },
+
+        btn: (primary: boolean) => ({
+            ...(baseFontStyle || {}),
+            width: "100%",
+            padding: "12px 14px",
+            borderRadius: buttonRadius,
+            border: primary ? "none" : `1px solid ${buttonBorderColor}`,
+            background: primary
+                ? buttonPrimaryBackground
+                : buttonGhostBackground,
+            color: primary ? buttonPrimaryTextColor : buttonGhostTextColor,
+            fontSize: buttonFontSize,
+            fontWeight: buttonFontWeight,
+            cursor: "pointer",
+            opacity: submitLoading && primary ? 0.7 : 1,
+        }),
+
+        btnInline: {
+            ...(baseFontStyle || {}),
+            width: 48,
+            height: 48,
+            borderRadius: buttonRadius,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: buttonPrimaryBackground,
+            color: buttonPrimaryTextColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            padding: 0,
+            opacity: searchLoading || familyLoading || submitLoading ? 0.7 : 1,
+        },
+
+        btnInlineGhost: {
+            ...(baseFontStyle || {}),
+            width: 48,
+            height: 48,
+            borderRadius: buttonRadius,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: buttonGhostBackground,
+            color: buttonGhostTextColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            padding: 0,
+            opacity: searchLoading || familyLoading || submitLoading ? 0.7 : 1,
+        },
+
+        pill: (active: boolean) => ({
+            ...(baseFontStyle || {}),
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 14,
+            padding: "18px 18px",
+            borderRadius: 12,
+            border: active
+                ? `2px solid rgba(140, 170, 220, 0.95)`
+                : `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: active
+                ? "rgba(235, 243, 255, 0.9)"
+                : "rgba(255,255,255,0.9)",
+            cursor: "pointer",
+            color: textColor,
+            minHeight: 72,
+            boxSizing: "border-box" as const,
+        }),
+
+        divider: {
+            height: 1,
+            background: dividerColor,
+            margin: "10px 0",
+        },
+
+        error: {
+            ...(baseFontStyle || {}),
+            fontSize: Math.max(12, smallSize + 1),
+            color: errorTextColor,
+            background: errorBackground,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            padding: "10px 12px",
+            borderRadius: inputRadius,
+        },
+
+        success: {
+            ...(baseFontStyle || {}),
+            fontSize: Math.max(12, smallSize + 1),
+            color: successTextColor,
+            background: successBackground,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            padding: "12px 12px",
+            borderRadius: inputRadius,
+        },
+
+        loadingState: {
+            ...(baseFontStyle || {}),
+            display: "flex",
+            flexDirection: "column" as const,
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            padding: "26px 12px",
+            borderRadius: inputRadius,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: "rgba(255,255,255,0.6)",
+        },
+
+        spinner: {
+            width: 18,
+            height: 18,
+            borderRadius: 999,
+            border: "2px solid rgba(0,0,0,0.18)",
+            borderTopColor: "rgba(0,0,0,0.7)",
+            animation: "rsvpSpin 0.8s linear infinite",
+        },
+
+        requiredNoteStyle: {
+            ...(baseFontStyle || {}),
+            fontSize: smallSize,
+            color: mutedTextColor,
+            marginTop: 10,
+        },
+    } as const
+
+    const spinnerCss = `
+@keyframes rsvpSpin { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
+`
+
+    function CheckMark({ active }: { active: boolean }) {
+        return active ? (
+            <CheckSquare size={22} aria-hidden="true" />
+        ) : (
+            <Square size={22} aria-hidden="true" style={{ opacity: 0.65 }} />
+        )
+    }
+
+    function RadioMark({ active }: { active: boolean }) {
+        return active ? (
+            <CheckCircle2 size={22} aria-hidden="true" />
+        ) : (
+            <Circle size={22} aria-hidden="true" style={{ opacity: 0.65 }} />
+        )
+    }
+
+    function choiceStyle(active: boolean): React.CSSProperties {
+        return {
+            ...(baseFontStyle || {}),
+            flex: 1,
+            minHeight: 72,
+            padding: "18px 18px",
+            borderRadius: 12,
+            border: active
+                ? `2px solid rgba(140, 170, 220, 0.95)`
+                : `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            background: active
+                ? "rgba(235, 243, 255, 0.9)"
+                : "rgba(255,255,255,0.9)",
+            color: textColor,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            cursor: "pointer",
+            boxSizing: "border-box",
+        }
+    }
+
+    return (
+        <div style={s.wrap}>
+            <style>{spinnerCss}</style>
+
+            {/* SEARCH CARD */}
+            <div style={s.card}>
+                {/* ✅ header wrapper con align */}
+                <div style={s.header}>
+                    <h1 style={s.h1}>{title}</h1>
+                    {subtitle ? <p style={s.p}>{subtitle}</p> : null}
+                </div>
+
+                {!endpointBase ? (
+                    <div style={{ ...s.error, marginTop: 10 }}>
+                        Inserisci <b>endpointUrl</b> (URL Web App di Apps
+                        Script) nelle proprietà del componente in Framer.
+                    </div>
+                ) : null}
+
+                <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", gap: 10 }}>
+                        <input
+                            style={s.input}
+                            value={query}
+                            placeholder={searchPlaceholder}
+                            onChange={(e) => {
+                                setQuery(e.target.value)
+                                setSearchError(null)
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault()
+                                    if (isResetMode) resetAll()
+                                    else runSearch()
+                                }
+                            }}
+                        />
+
+                        <button
+                            style={isResetMode ? s.btnInlineGhost : s.btnInline}
+                            onClick={isResetMode ? resetAll : runSearch}
+                            disabled={
+                                (!endpointBase && !isResetMode) ||
+                                searchLoading ||
+                                submitLoading ||
+                                familyLoading
+                            }
+                            aria-label={
+                                isResetMode ? resetLabel : searchButtonLabel
+                            }
+                            title={isResetMode ? resetLabel : searchButtonLabel}
+                        >
+                            {searchLoading ? (
+                                <div style={s.spinner} />
+                            ) : isResetMode ? (
+                                <RotateCcw size={18} />
+                            ) : (
+                                <Search size={18} />
+                            )}
+                        </button>
+                    </div>
+
+                    {searchError ? (
+                        <div style={{ ...s.error, marginTop: 10 }}>
+                            {searchError}
+                        </div>
+                    ) : null}
+
+                    {!selectedGuest && results.length > 0 ? (
+                        <div style={{ marginTop: 10, ...s.resultsScroll }}>
+                            <div style={s.list}>
+                                {results.map((g) => (
+                                    <div
+                                        key={g.guestId}
+                                        style={s.pill(false)}
+                                        onClick={() => loadFamily(g)}
+                                        role="button"
+                                        aria-label={`Seleziona ${g.name}`}
+                                    >
+                                        <div>
+                                            <div
+                                                style={{
+                                                    ...(baseFontStyle || {}),
+                                                    fontSize: 14,
+                                                    fontWeight: 700,
+                                                }}
+                                            >
+                                                {g.name}
+                                            </div>
+                                        </div>
+
+                                        <ChevronRight
+                                            size={20}
+                                            style={{ opacity: 0.6 }}
+                                            aria-hidden="true"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {!selectedGuest &&
+                    hasSearched &&
+                    !searchLoading &&
+                    results.length === 0 &&
+                    !searchError ? (
+                        <div style={{ ...s.error, marginTop: 10 }}>
+                            Nessun risultato trovato. Prova con un altro nome.
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+
+            {/* FAMILY */}
+            {selectedGuest ? (
+                <div style={s.card}>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                        <div
+                            style={{
+                                ...(baseFontStyle || {}),
+                                fontSize: titleSize - 2,
+                                fontWeight: titleWeight,
+                                marginTop: 4,
+                                marginBottom: 8,
+                                lineHeight: 1.2,
+                            }}
+                        >
+                            {selectPeopleLabel}
+                        </div>
+                    </div>
+
+                    {familyLoading ? (
+                        <div style={{ marginTop: 12, ...s.loadingState }}>
+                            <div style={s.spinner} />
+                            <div
+                                style={{
+                                    ...(baseFontStyle || {}),
+                                    fontSize: 14,
+                                    fontWeight: 800,
+                                }}
+                            >
+                                Sto caricando il tuo gruppo…
+                            </div>
+                            <div style={s.small}>
+                                Un secondo e ti mostro le persone collegate.
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {!familyLoading && familyError ? (
+                        <div style={{ ...s.error, marginTop: 10 }}>
+                            {familyError}
+                        </div>
+                    ) : null}
+
+                    {!familyLoading && !familyError ? (
+                        <>
+                            {submitted ? (
+                                <div style={{ marginTop: 12 }}>
+                                    <div style={s.success}>
+                                        <div
+                                            style={{
+                                                ...(baseFontStyle || {}),
+                                                fontWeight: 850,
+                                                marginBottom: 6,
+                                            }}
+                                        >
+                                            {successTitle}
+                                        </div>
+                                        <div style={{ ...(baseFontStyle || {}) }}>
+                                            {successSubtitle}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    {familyMembers.length > 0 ? (
+                                        <div
+                                            style={{ ...s.list, marginTop: 12 }}
+                                        >
+                                            {familyMembers.map((m) => {
+                                                const active =
+                                                    selectedMemberIds.has(
+                                                        m.guestId
+                                                    )
+                                                return (
+                                                    <div
+                                                        key={m.guestId}
+                                                        style={s.pill(active)}
+                                                        onClick={() =>
+                                                            toggleMember(
+                                                                m.guestId
+                                                            )
+                                                        }
+                                                        role="button"
+                                                        aria-label={`Seleziona ${m.name}`}
+                                                    >
+                                                        <div>
+                                                            <div
+                                                                style={{
+                                                                    ...(baseFontStyle ||
+                                                                        {}),
+                                                                    fontSize: 14,
+                                                                    fontWeight: 750,
+                                                                }}
+                                                            >
+                                                                {m.name}
+                                                            </div>
+                                                        </div>
+                                                        <CheckMark
+                                                            active={active}
+                                                        />
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    ) : null}
+
+                                    <div style={s.divider} />
+
+                                    {Array.from(selectedMemberIds).map((id) => {
+                                        const a = answers[id]
+                                        if (!a) return null
+
+                                        const isAttending = a.attending === true
+
+                                        const menuIsRequired =
+                                            isAttending && requiredMenu
+                                        const allergiesIsRequired =
+                                            isAttending &&
+                                            requiredAllergiesWhenAttending
+                                        const shuttleIsRequired =
+                                            isAttending &&
+                                            requiredShuttleWhenAttending
+
+                                        const menuPlaceholder = `${menuLabel}${
+                                            menuIsRequired
+                                                ? requiredAsterisk
+                                                : ""
+                                        }…`
+
+                                        const allergiesPlaceholder = `${allergiesLabel}${
+                                            allergiesIsRequired
+                                                ? requiredAsterisk
+                                                : ""
+                                        } (se nessuna, scrivi “Nessuna”)`
+
+                                        const notesPlaceholder = `${notesLabel} (opzionale)`
+
+                                        return (
+                                            <div
+                                                key={id}
+                                                style={{ padding: "10px 0" }}
+                                            >
+                                                <div
+                                                    style={{
+                                                        ...(baseFontStyle ||
+                                                            {}),
+                                                        fontSize: 15,
+                                                        fontWeight: 850,
+                                                    }}
+                                                >
+                                                    {a.name}
+                                                </div>
+
+                                                <div style={{ marginTop: 10 }}>
+                                                    <div
+                                                        style={{
+                                                            display: "flex",
+                                                            gap: 10,
+                                                            marginTop: 8,
+                                                        }}
+                                                    >
+                                                        <button
+                                                            style={choiceStyle(
+                                                                a.attending ===
+                                                                    true
+                                                            )}
+                                                            onClick={() =>
+                                                                updateAnswer(
+                                                                    id,
+                                                                    {
+                                                                        attending:
+                                                                            true,
+                                                                    }
+                                                                )
+                                                            }
+                                                            type="button"
+                                                            aria-label={`${attendingLabel} ${yesLabel}`}
+                                                        >
+                                                            <span
+                                                                style={{
+                                                                    fontWeight: 800,
+                                                                }}
+                                                            >
+                                                                {yesLabel}
+                                                            </span>
+                                                            <RadioMark
+                                                                active={
+                                                                    a.attending ===
+                                                                    true
+                                                                }
+                                                            />
+                                                        </button>
+
+                                                        <button
+                                                            style={choiceStyle(
+                                                                a.attending ===
+                                                                    false
+                                                            )}
+                                                            onClick={() =>
+                                                                updateAnswer(
+                                                                    id,
+                                                                    {
+                                                                        attending:
+                                                                            false,
+                                                                        menu: "",
+                                                                        allergies:
+                                                                            "",
+                                                                        shuttle:
+                                                                            null,
+                                                                        notes: "",
+                                                                    }
+                                                                )
+                                                            }
+                                                            type="button"
+                                                            aria-label={`${attendingLabel} ${noLabel}`}
+                                                        >
+                                                            <span
+                                                                style={{
+                                                                    fontWeight: 800,
+                                                                }}
+                                                            >
+                                                                {noLabel}
+                                                            </span>
+                                                            <RadioMark
+                                                                active={
+                                                                    a.attending ===
+                                                                    false
+                                                                }
+                                                            />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {a.attending !== false ? (
+                                                    <>
+                                                        <div
+                                                            style={{
+                                                                marginTop: 12,
+                                                            }}
+                                                        >
+                                                            <div
+                                                                style={{
+                                                                    position:
+                                                                        "relative",
+                                                                }}
+                                                            >
+                                                                <select
+                                                                    style={
+                                                                        s.select
+                                                                    }
+                                                                    value={
+                                                                        a.menu
+                                                                    }
+                                                                    onChange={(
+                                                                        e
+                                                                    ) =>
+                                                                        updateAnswer(
+                                                                            id,
+                                                                            {
+                                                                                menu: e
+                                                                                    .target
+                                                                                    .value,
+                                                                            }
+                                                                        )
+                                                                    }
+                                                                    aria-label={
+                                                                        menuLabel
+                                                                    }
+                                                                >
+                                                                    <option value="">
+                                                                        {
+                                                                            menuPlaceholder
+                                                                        }
+                                                                    </option>
+                                                                    {menuList.map(
+                                                                        (
+                                                                            opt
+                                                                        ) => (
+                                                                            <option
+                                                                                key={
+                                                                                    opt
+                                                                                }
+                                                                                value={
+                                                                                    opt
+                                                                                }
+                                                                            >
+                                                                                {
+                                                                                    opt
+                                                                                }
+                                                                            </option>
+                                                                        )
+                                                                    )}
+                                                                </select>
+
+                                                                <div
+                                                                    style={{
+                                                                        position:
+                                                                            "absolute",
+                                                                        right: 14,
+                                                                        top: "50%",
+                                                                        transform:
+                                                                            "translateY(-50%)",
+                                                                        pointerEvents:
+                                                                            "none",
+                                                                        color: inputTextColor,
+                                                                        opacity: 0.7,
+                                                                        display:
+                                                                            "flex",
+                                                                        alignItems:
+                                                                            "center",
+                                                                        justifyContent:
+                                                                            "center",
+                                                                    }}
+                                                                    aria-hidden="true"
+                                                                >
+                                                                    <ChevronDown
+                                                                        size={20}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            style={{
+                                                                marginTop: 12,
+                                                            }}
+                                                        >
+                                                            <input
+                                                                style={s.input}
+                                                                value={
+                                                                    a.allergies
+                                                                }
+                                                                onChange={(e) =>
+                                                                    updateAnswer(
+                                                                        id,
+                                                                        {
+                                                                            allergies:
+                                                                                e
+                                                                                    .target
+                                                                                    .value,
+                                                                        }
+                                                                    )
+                                                                }
+                                                                placeholder={
+                                                                    allergiesPlaceholder
+                                                                }
+                                                                aria-label={
+                                                                    allergiesLabel
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        {showShuttle ? (
+                                                            <div
+                                                                style={{
+                                                                    marginTop: 12,
+                                                                }}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        display:
+                                                                            "flex",
+                                                                        gap: 10,
+                                                                        marginTop: 8,
+                                                                    }}
+                                                                >
+                                                                    <button
+                                                                        style={choiceStyle(
+                                                                            a.shuttle ===
+                                                                                true
+                                                                        )}
+                                                                        onClick={() =>
+                                                                            updateAnswer(
+                                                                                id,
+                                                                                {
+                                                                                    shuttle:
+                                                                                        true,
+                                                                                }
+                                                                            )
+                                                                        }
+                                                                        type="button"
+                                                                        aria-label={`${shuttleLabel} ${yesLabel}`}
+                                                                    >
+                                                                        <span
+                                                                            style={{
+                                                                                fontWeight: 800,
+                                                                            }}
+                                                                        >
+                                                                            {
+                                                                                shuttleYesText
+                                                                            }
+                                                                        </span>
+                                                                        <RadioMark
+                                                                            active={
+                                                                                a.shuttle ===
+                                                                                true
+                                                                            }
+                                                                        />
+                                                                    </button>
+
+                                                                    <button
+                                                                        style={choiceStyle(
+                                                                            a.shuttle ===
+                                                                                false
+                                                                        )}
+                                                                        onClick={() =>
+                                                                            updateAnswer(
+                                                                                id,
+                                                                                {
+                                                                                    shuttle:
+                                                                                        false,
+                                                                                }
+                                                                            )
+                                                                        }
+                                                                        type="button"
+                                                                        aria-label={`${shuttleLabel} ${noLabel}`}
+                                                                    >
+                                                                        <span
+                                                                            style={{
+                                                                                fontWeight: 800,
+                                                                            }}
+                                                                        >
+                                                                            {
+                                                                                shuttleNoText
+                                                                            }
+                                                                        </span>
+                                                                        <RadioMark
+                                                                            active={
+                                                                                a.shuttle ===
+                                                                                false
+                                                                            }
+                                                                        />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ) : null}
+
+                                                        <div
+                                                            style={{
+                                                                marginTop: 12,
+                                                            }}
+                                                        >
+                                                            <textarea
+                                                                style={
+                                                                    s.textarea
+                                                                }
+                                                                value={a.notes}
+                                                                onChange={(e) =>
+                                                                    updateAnswer(
+                                                                        id,
+                                                                        {
+                                                                            notes: e
+                                                                                .target
+                                                                                .value,
+                                                                        }
+                                                                    )
+                                                                }
+                                                                placeholder={
+                                                                    notesPlaceholder
+                                                                }
+                                                                aria-label={
+                                                                    notesLabel
+                                                                }
+                                                            />
+                                                        </div>
+
+                                                        <div style={s.divider} />
+                                                    </>
+                                                ) : (
+                                                    <div
+                                                        style={{
+                                                            marginTop: 10,
+                                                            ...s.small,
+                                                        }}
+                                                    >
+                                                        Ok — nessun’altra
+                                                        informazione necessaria.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+
+                                    <div style={s.requiredNoteStyle}>
+                                        <span
+                                            style={{
+                                                ...(baseFontStyle || {}),
+                                                color: errorTextColor,
+                                                fontWeight: 800,
+                                                marginRight: 6,
+                                            }}
+                                            aria-hidden="true"
+                                        >
+                                            {requiredAsterisk}
+                                        </span>
+                                        {requiredNote}
+                                    </div>
+
+                                    {submitError ? (
+                                        <div
+                                            style={{
+                                                ...s.error,
+                                                marginTop: 10,
+                                            }}
+                                        >
+                                            {submitError}
+                                        </div>
+                                    ) : null}
+
+                                    <button
+                                        style={s.btn(true)}
+                                        onClick={submit}
+                                        disabled={submitLoading}
+                                    >
+                                        {submitLoading ? "Invio…" : submitLabel}
+                                    </button>
+                                </>
+                            )}
+                        </>
+                    ) : null}
+                </div>
+            ) : null}
+        </div>
+    )
+}
+
+RSVPGoogleSheets.defaultProps = {
+    title: "Conferma la tua presenza",
+    subtitle:
+        "Cerca il tuo nome, seleziona le persone del tuo gruppo e compila in pochi secondi.",
+    searchPlaceholder: "Cerca il tuo nome…",
+    endpointUrl: "",
+    showShuttle: true,
+    requireMenuIfAttending: true,
+    menuOptions: "Carne\nPesce\nVegetariano",
+    attendingLabel: "Parteciperai?",
+    yesLabel: "Ci sarò",
+    noLabel: "Non ci sarò",
+    shuttleYesText: "Bus da Palermo",
+    shuttleNoText: "No bus",
+    menuLabel: "Menu",
+    allergiesLabel: "Allergie / Intolleranze",
+    shuttleLabel: "Voglio il bus navetta",
+    notesLabel: "Note",
+    selectPeopleLabel: "Seleziona chi fa parte del tuo gruppo",
+    submitLabel: "Invia",
+    successTitle: "Ricevuto! 🎉",
+    successSubtitle: "Grazie — abbiamo salvato la tua risposta.",
+    resetLabel: "Ricomincia",
+    searchButtonLabel: "Cerca",
+
+    commonBorderColor: "rgba(0,0,0,0.12)",
+    commonBorderWidth: 1,
+
+    requiredAsterisk: "*",
+    requiredNote: "Campo obbligatorio.",
+
+    // ✅ NEW
+    titleTextAlign: "left",
+    titleFont: {
+        fontSize: 18,
+        variant: "Bold",
+        letterSpacing: "0em",
+        lineHeight: "1.2em",
+    },
+
+    font: {
+        fontSize: 16,
+        variant: "Regular",
+        letterSpacing: "0em",
+        lineHeight: "1.4em",
+    },
+
+    textColor: "rgba(0,0,0,0.88)",
+    mutedTextColor: "rgba(0,0,0,0.65)",
+
+    wrapBackground: "transparent",
+    wrapPadding: 16,
+    wrapGap: 12,
+
+    cardBackground: "rgba(255,255,255,0.9)",
+    cardBorderColor: "rgba(0,0,0,0.08)",
+    cardBorderWidth: 1,
+    cardRadius: 14,
+    cardPadding: 14,
+
+    titleSize: 18,
+    titleWeight: 700,
+    subtitleSize: 13,
+
+    labelSize: 12,
+    labelWeight: 700,
+
+    smallSize: 12,
+
+    inputBackground: "white",
+    inputTextColor: "rgba(0,0,0,0.88)",
+    inputBorderColor: "rgba(0,0,0,0.12)",
+    inputRadius: 12,
+    inputPaddingX: 12,
+    inputPaddingY: 12,
+
+    selectBackground: "white",
+
+    buttonRadius: 12,
+    buttonPrimaryBackground: "rgba(0,0,0,0.88)",
+    buttonPrimaryTextColor: "white",
+    buttonGhostBackground: "transparent",
+    buttonGhostTextColor: "rgba(0,0,0,0.88)",
+    buttonBorderColor: "rgba(0,0,0,0.12)",
+    buttonFontSize: 15,
+    buttonFontWeight: 700,
+
+    dividerColor: "rgba(0,0,0,0.06)",
+
+    errorTextColor: "rgb(176, 26, 26)",
+    errorBackground: "rgba(176, 26, 26, 0.08)",
+    errorBorderColor: "rgba(176, 26, 26, 0.18)",
+
+    successTextColor: "rgb(18, 102, 55)",
+    successBackground: "rgba(18, 102, 55, 0.08)",
+    successBorderColor: "rgba(18, 102, 55, 0.18)",
+}
+
+addPropertyControls(RSVPGoogleSheets, {
+    endpointUrl: { type: ControlType.String, title: "Endpoint URL" },
+
+    // ✅ NEW: header controls
+    titleFont: {
+        type: ControlType.Font,
+        title: "Titolo · Font",
+        controls: "extended",
+        defaultFontType: "sans-serif",
+        defaultValue: {
+            fontSize: 18,
+            variant: "Bold",
+            letterSpacing: "0em",
+            lineHeight: "1.2em",
+        },
+    },
+    titleTextAlign: {
+        type: ControlType.Enum,
+        title: "Titolo · Align",
+        options: ["left", "center", "right"],
+        optionTitles: ["Left", "Center", "Right"],
+        defaultValue: "left",
+    },
+
+    title: { type: ControlType.String, title: "Titolo" },
+    subtitle: { type: ControlType.String, title: "Sottotitolo" },
+    searchPlaceholder: {
+        type: ControlType.String,
+        title: "Placeholder ricerca",
+    },
+
+    showShuttle: {
+        type: ControlType.Boolean,
+        title: "Mostra navetta",
+        defaultValue: true,
+    },
+    requireMenuIfAttending: {
+        type: ControlType.Boolean,
+        title: "Menu obbligatorio",
+        defaultValue: true,
+    },
+
+    menuOptions: {
+        type: ControlType.String,
+        title: "Opzioni menu",
+        displayTextArea: true,
+        defaultValue: "Carne\nPesce\nVegetariano",
+    },
+
+    attendingLabel: { type: ControlType.String, title: "Label presenza" },
+    yesLabel: { type: ControlType.String, title: "Label sì" },
+    noLabel: { type: ControlType.String, title: "Label no" },
+    shuttleYesText: {
+        type: ControlType.String,
+        title: "Navetta testo Sì",
+    },
+
+    shuttleNoText: {
+        type: ControlType.String,
+        title: "Navetta testo No",
+    },
+    menuLabel: { type: ControlType.String, title: "Label menu" },
+    allergiesLabel: { type: ControlType.String, title: "Label allergie" },
+    shuttleLabel: { type: ControlType.String, title: "Label navetta" },
+    notesLabel: { type: ControlType.String, title: "Label note" },
+    selectPeopleLabel: { type: ControlType.String, title: "Label gruppo" },
+
+    submitLabel: { type: ControlType.String, title: "Testo bottone" },
+    successTitle: { type: ControlType.String, title: "Titolo successo" },
+    successSubtitle: { type: ControlType.String, title: "Testo successo" },
+
+    searchButtonLabel: { type: ControlType.String, title: "Testo Cerca" },
+    resetLabel: { type: ControlType.String, title: "Testo Ricomincia" },
+
+    commonBorderColor: {
+        type: ControlType.Color,
+        title: "Border (global) color",
+    },
+    commonBorderWidth: {
+        type: ControlType.Number,
+        title: "Border (global) width",
+        min: 0,
+        max: 8,
+        step: 1,
+    },
+
+    requiredAsterisk: {
+        type: ControlType.String,
+        title: "Asterisco obblig.",
+        defaultValue: "*",
+    },
+    requiredNote: {
+        type: ControlType.String,
+        title: "Nota obbligatori",
+        defaultValue: "Campo obbligatorio.",
+    },
+
+    font: {
+        type: ControlType.Font,
+        title: "Font",
+        controls: "extended",
+        defaultFontType: "sans-serif",
+        defaultValue: {
+            fontSize: 16,
+            variant: "Regular",
+            letterSpacing: "0em",
+            lineHeight: "1.4em",
+        },
+    },
+
+    textColor: { type: ControlType.Color, title: "Testo" },
+    mutedTextColor: { type: ControlType.Color, title: "Testo secondario" },
+
+    wrapBackground: { type: ControlType.Color, title: "Bg container" },
+    wrapPadding: {
+        type: ControlType.FusedNumber,
+        title: "Padding container",
+        defaultValue: 16,
+        toggleKey: "wrapPaddingAll",
+        toggleTitles: ["All", "T", "R", "B", "L"],
+        valueKeys: ["top", "right", "bottom", "left"],
+        valueLabels: ["T", "R", "B", "L"],
+        min: 0,
+    },
+    wrapGap: {
+        type: ControlType.Number,
+        title: "Gap",
+        min: 0,
+        max: 64,
+        step: 1,
+    },
+
+    cardBackground: { type: ControlType.Color, title: "Bg card" },
+    cardBorderColor: { type: ControlType.Color, title: "Bordo card" },
+    cardBorderWidth: {
+        type: ControlType.Number,
+        title: "Spessore bordo",
+        min: 0,
+        max: 8,
+        step: 1,
+    },
+    cardRadius: {
+        type: ControlType.Number,
+        title: "Raggio card",
+        min: 0,
+        max: 48,
+        step: 1,
+    },
+    cardPadding: {
+        type: ControlType.Number,
+        title: "Padding card",
+        min: 0,
+        max: 48,
+        step: 1,
+    },
+
+    titleSize: {
+        type: ControlType.Number,
+        title: "Titolo size",
+        min: 10,
+        max: 40,
+        step: 1,
+    },
+    titleWeight: {
+        type: ControlType.Number,
+        title: "Titolo weight",
+        min: 100,
+        max: 900,
+        step: 50,
+    },
+    subtitleSize: {
+        type: ControlType.Number,
+        title: "Sottotitolo size",
+        min: 10,
+        max: 24,
+        step: 1,
+    },
+
+    labelSize: {
+        type: ControlType.Number,
+        title: "Label size",
+        min: 10,
+        max: 24,
+        step: 1,
+    },
+    labelWeight: {
+        type: ControlType.Number,
+        title: "Label weight",
+        min: 100,
+        max: 900,
+        step: 50,
+    },
+    smallSize: {
+        type: ControlType.Number,
+        title: "Small size",
+        min: 10,
+        max: 20,
+        step: 1,
+    },
+
+    inputBackground: { type: ControlType.Color, title: "Bg input" },
+    inputTextColor: { type: ControlType.Color, title: "Testo input" },
+    inputBorderColor: { type: ControlType.Color, title: "Bordo input" },
+    inputRadius: {
+        type: ControlType.Number,
+        title: "Raggio input",
+        min: 0,
+        max: 32,
+        step: 1,
+    },
+    inputPaddingX: {
+        type: ControlType.Number,
+        title: "Input pad X",
+        min: 0,
+        max: 24,
+        step: 1,
+    },
+    inputPaddingY: {
+        type: ControlType.Number,
+        title: "Input pad Y",
+        min: 0,
+        max: 24,
+        step: 1,
+    },
+    selectBackground: { type: ControlType.Color, title: "Bg select" },
+
+    buttonRadius: {
+        type: ControlType.Number,
+        title: "Raggio bottoni",
+        min: 0,
+        max: 32,
+        step: 1,
+    },
+    buttonPrimaryBackground: {
+        type: ControlType.Color,
+        title: "Btn primary bg",
+    },
+    buttonPrimaryTextColor: {
+        type: ControlType.Color,
+        title: "Btn primary testo",
+    },
+    buttonGhostBackground: { type: ControlType.Color, title: "Btn ghost bg" },
+    buttonGhostTextColor: { type: ControlType.Color, title: "Btn ghost testo" },
+    buttonBorderColor: { type: ControlType.Color, title: "Bordo bottoni" },
+    buttonFontSize: {
+        type: ControlType.Number,
+        title: "Btn size",
+        min: 10,
+        max: 24,
+        step: 1,
+    },
+    buttonFontWeight: {
+        type: ControlType.Number,
+        title: "Btn weight",
+        min: 100,
+        max: 900,
+        step: 50,
+    },
+
+    dividerColor: { type: ControlType.Color, title: "Divider" },
+
+    errorTextColor: { type: ControlType.Color, title: "Errore testo" },
+    errorBackground: { type: ControlType.Color, title: "Errore bg" },
+    errorBorderColor: { type: ControlType.Color, title: "Errore bordo" },
+
+    successTextColor: { type: ControlType.Color, title: "Successo testo" },
+    successBackground: { type: ControlType.Color, title: "Successo bg" },
+    successBorderColor: { type: ControlType.Color, title: "Successo bordo" },
+})
