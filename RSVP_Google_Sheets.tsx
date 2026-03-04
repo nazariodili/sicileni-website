@@ -141,7 +141,7 @@ function ensureLottiePlayer() {
 
 function LottieLoader({
     src,
-    maxSize = 50,
+    maxSize = 100,
 }: {
     src: string
     maxSize?: number
@@ -179,8 +179,8 @@ function LottieLoader({
         <div
             ref={mountRef}
             style={{
-                width: Math.min(50, Math.max(12, maxSize)),
-                height: Math.min(50, Math.max(12, maxSize)),
+                width: Math.min(100, Math.max(24, maxSize)),
+                height: Math.min(100, Math.max(24, maxSize)),
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -224,7 +224,7 @@ export default function RSVPGoogleSheets(props: any) {
         loadingGroupTitle,
         loadingGroupSubtitle,
         submitLoadingLabel,
-        searchLoaderLottieUrl,
+        searchLoaderLottieFile,
         submitGenericError,
         serverInvalidResponseError,
         noMoreInfoNeededText,
@@ -1045,7 +1045,7 @@ export default function RSVPGoogleSheets(props: any) {
                                 <div style={s.searchDropdownBody}>
                                     {searchLoading ? (
                                         <div style={{ ...s.loadingState, marginTop: 0 }}>
-                                            <LottieLoader src={searchLoaderLottieUrl} maxSize={50} />
+                                            <LottieLoader src={searchLoaderLottieFile} maxSize={100} />
                                         </div>
                                     ) : null}
 
@@ -1643,7 +1643,7 @@ RSVPGoogleSheets.defaultProps = {
     loadingGroupTitle: "Sto caricando il tuo gruppo…",
     loadingGroupSubtitle: "Un secondo e ti mostro le persone collegate.",
     submitLoadingLabel: "Invio…",
-    searchLoaderLottieUrl: "https://assets5.lottiefiles.com/packages/lf20_usmfx6bp.json",
+    searchLoaderLottieFile: "",
     submitGenericError: "Errore durante l'invio.",
     serverInvalidResponseError: "Risposta non valida dal server.",
     noMoreInfoNeededText: "Ok — nessun’altra informazione necessaria.",
@@ -1834,7 +1834,11 @@ addPropertyControls(RSVPGoogleSheets, {
     loadingGroupTitle: { type: ControlType.String, title: "Caricamento titolo" },
     loadingGroupSubtitle: { type: ControlType.String, title: "Caricamento testo" },
     submitLoadingLabel: { type: ControlType.String, title: "Invio in corso" },
-    searchLoaderLottieUrl: { type: ControlType.String, title: "Loader Lottie URL" },
+    searchLoaderLottieFile: {
+        type: ControlType.File,
+        title: "Loader Lottie JSON",
+        allowedFileTypes: ["json"],
+    },
     submitGenericError: { type: ControlType.String, title: "Err. invio" },
     serverInvalidResponseError: {
         type: ControlType.String,
