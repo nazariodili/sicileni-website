@@ -870,6 +870,8 @@ export default function RSVPGoogleSheets(props: any) {
         <div style={s.wrap}>
             <style>{spinnerCss}</style>
 
+            {!submitted ? (
+                <>
             {/* SEARCH CARD */}
             <div style={s.card}>
                 {/* ✅ header wrapper con align */}
@@ -1498,6 +1500,9 @@ export default function RSVPGoogleSheets(props: any) {
                         ) : null}
                     </AutoHeight>
                 </div>
+            ) : null}
+
+                </>
             ) : null}
 
             {submitted ? (
