@@ -833,7 +833,7 @@ export default function RSVPGoogleSheets(props: any) {
             gap: 10,
             padding: "26px 12px",
             borderRadius: inputRadius,
-            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            border: "none",
             background: "rgba(255,255,255,0.6)",
         },
 
@@ -864,6 +864,7 @@ export default function RSVPGoogleSheets(props: any) {
         searchDropdown: {
             marginTop: 10,
             borderRadius: Math.max(16, Number(inputRadius) || 16),
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
             background: inputBackground,
             overflow: "hidden" as const,
         },
