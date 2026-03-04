@@ -758,6 +758,7 @@ export default function RSVPGoogleSheets(props: any) {
             justifyContent: "center",
             padding: `${(wrapPadding?.top ?? 16) as number}px ${(wrapPadding?.right ?? 16) as number}px ${(wrapPadding?.bottom ?? 16) as number}px ${(wrapPadding?.left ?? 16) as number}px`,
             boxSizing: "border-box" as const,
+            overflowY: "auto" as const,
         },
 
         successOverlayInner: {
@@ -768,21 +769,21 @@ export default function RSVPGoogleSheets(props: any) {
             flexDirection: "column" as const,
             alignItems: "center",
             justifyContent: "center",
-            gap: 24,
+            gap: 18,
             textAlign: "center" as const,
+            boxSizing: "border-box" as const,
+            padding: "20px 0",
         },
 
         successSubtitleLarge: {
             ...(baseFontStyle || {}),
             margin: 0,
             color: successTextColor,
-            fontSize:
-                typeof baseFontStyle.fontSize === "number"
-                    ? baseFontStyle.fontSize * 2.4
-                    : 64,
+            fontSize: "clamp(32px, 7vw, 88px)",
             lineHeight: 1.05,
             fontWeight: 700,
             maxWidth: 900,
+            textWrap: "balance" as const,
         },
 
         successResetButton: {
