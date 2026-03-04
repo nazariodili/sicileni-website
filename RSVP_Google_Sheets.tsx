@@ -141,7 +141,7 @@ function ensureLottiePlayer() {
 
 function LottieLoader({
     src,
-    maxSize = 100,
+    maxSize = 70,
 }: {
     src: string
     maxSize?: number
@@ -179,8 +179,8 @@ function LottieLoader({
         <div
             ref={mountRef}
             style={{
-                width: Math.min(100, Math.max(24, maxSize)),
-                height: Math.min(100, Math.max(24, maxSize)),
+                width: Math.min(70, Math.max(24, maxSize)),
+                height: Math.min(70, Math.max(24, maxSize)),
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -221,8 +221,6 @@ export default function RSVPGoogleSheets(props: any) {
         searchGenericError,
         noResultsText,
         familyLoadErrorText,
-        loadingGroupTitle,
-        loadingGroupSubtitle,
         submitLoadingLabel,
         searchLoaderLottieFile,
         submitGenericError,
@@ -866,7 +864,6 @@ export default function RSVPGoogleSheets(props: any) {
         searchDropdown: {
             marginTop: 10,
             borderRadius: Math.max(16, Number(inputRadius) || 16),
-            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
             background: inputBackground,
             overflow: "hidden" as const,
         },
@@ -1035,17 +1032,10 @@ export default function RSVPGoogleSheets(props: any) {
                     <AutoHeight>
                         {shouldOpenSearchDropdown ? (
                             <div style={s.searchDropdown}>
-                                <div
-                                    style={{
-                                        height: 1,
-                                        background: dividerColor,
-                                        opacity: 0.8,
-                                    }}
-                                />
                                 <div style={s.searchDropdownBody}>
                                     {searchLoading ? (
                                         <div style={{ ...s.loadingState, marginTop: 0 }}>
-                                            <LottieLoader src={searchLoaderLottieFile} maxSize={100} />
+                                            <LottieLoader src={searchLoaderLottieFile} maxSize={70} />
                                         </div>
                                     ) : null}
 
@@ -1121,19 +1111,7 @@ export default function RSVPGoogleSheets(props: any) {
                     <AutoHeight>
                         {familyLoading ? (
                             <div style={{ marginTop: 12, ...s.loadingState }}>
-                                <div style={s.spinner} />
-                                <div
-                                    style={{
-                                        ...(baseFontStyle || {}),
-                                        fontSize: 14,
-                                        fontWeight: 800,
-                                    }}
-                                >
-                                    {loadingGroupTitle}
-                                </div>
-                                <div style={s.small}>
-                                    {loadingGroupSubtitle}
-                                </div>
+                                <LottieLoader src={searchLoaderLottieFile} maxSize={70} />
                             </div>
                         ) : null}
 
@@ -1640,8 +1618,6 @@ RSVPGoogleSheets.defaultProps = {
     searchGenericError: "Errore durante la ricerca.",
     noResultsText: "Nessun risultato trovato. Prova con un altro nome.",
     familyLoadErrorText: "Errore nel caricamento del gruppo.",
-    loadingGroupTitle: "Sto caricando il tuo gruppo…",
-    loadingGroupSubtitle: "Un secondo e ti mostro le persone collegate.",
     submitLoadingLabel: "Invio…",
     searchLoaderLottieFile: "",
     submitGenericError: "Errore durante l'invio.",
@@ -1831,8 +1807,6 @@ addPropertyControls(RSVPGoogleSheets, {
     searchGenericError: { type: ControlType.String, title: "Err. ricerca" },
     noResultsText: { type: ControlType.String, title: "Mess. no risultati" },
     familyLoadErrorText: { type: ControlType.String, title: "Err. caricamento gruppo" },
-    loadingGroupTitle: { type: ControlType.String, title: "Caricamento titolo" },
-    loadingGroupSubtitle: { type: ControlType.String, title: "Caricamento testo" },
     submitLoadingLabel: { type: ControlType.String, title: "Invio in corso" },
     searchLoaderLottieFile: {
         type: ControlType.File,
