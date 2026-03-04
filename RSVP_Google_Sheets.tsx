@@ -5,6 +5,7 @@ import {
     RotateCcw,
     ChevronRight,
     ChevronDown,
+    X,
     CheckSquare,
     Square,
     CheckCircle2,
@@ -462,6 +463,15 @@ export default function RSVPGoogleSheets(props: any) {
         setSubmitStatus("idle")
     }
 
+    function clearSearchInput() {
+        setQuery("")
+        setSearchError(null)
+        setHasSearched(false)
+        if (!selectedGuest) {
+            setResults([])
+        }
+    }
+
     const requiredMenu = requireMenuIfAttending
     const requiredAllergiesWhenAttending = true
     const requiredShuttleWhenAttending = showShuttle
@@ -746,22 +756,55 @@ export default function RSVPGoogleSheets(props: any) {
 
                 <div style={{ marginTop: 12 }}>
                     <div style={{ display: "flex", gap: 10 }}>
-                        <input
-                            style={s.input}
-                            value={query}
-                            placeholder={searchPlaceholder}
-                            onChange={(e) => {
-                                setQuery(e.target.value)
-                                setSearchError(null)
-                            }}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    e.preventDefault()
-                                    if (isResetMode) resetAll()
-                                    else runSearch()
-                                }
-                            }}
-                        />
+                        <div style={{ position: "relative", flex: 1 }}>
+                            <input
+                                style={{
+                                    ...s.input,
+                                    paddingRight: query.trim() ? 42 : toPx(inputPaddingX),
+                                }}
+                                value={query}
+                                placeholder={searchPlaceholder}
+                                onChange={(e) => {
+                                    setQuery(e.target.value)
+                                    setSearchError(null)
+                                }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault()
+                                        runSearch()
+                                    }
+                                }}
+                            />
+
+                            {query.trim() ? (
+                                <button
+                                    type="button"
+                                    onClick={clearSearchInput}
+                                    disabled={searchLoading || familyLoading || submitLoading}
+                                    aria-label="Svuota campo ricerca"
+                                    title="Svuota"
+                                    style={{
+                                        position: "absolute",
+                                        right: 10,
+                                        top: "50%",
+                                        transform: "translateY(-50%)",
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: 999,
+                                        border: "none",
+                                        background: "transparent",
+                                        color: mutedTextColor,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        cursor: "pointer",
+                                        padding: 0,
+                                    }}
+                                >
+                                    <X size={16} />
+                                </button>
+                            ) : null}
+                        </div>
 
                         <button
                             style={isResetMode ? s.btnInlineGhost : s.btnInline}
