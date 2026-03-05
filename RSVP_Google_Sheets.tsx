@@ -1931,7 +1931,7 @@ RSVPGoogleSheets.defaultProps = {
 }
 
 addPropertyControls(RSVPGoogleSheets, {
-    endpointUrl: { type: ControlType.String, title: "Endpoint URL" },
+    endpointUrl: { type: ControlType.String, title: "Endpoint URL", displayTextArea: true },
 
     // ✅ NEW: header controls
     titleFont: {
@@ -1946,7 +1946,7 @@ addPropertyControls(RSVPGoogleSheets, {
             lineHeight: "1.2em",
         },
     },
-    title: { type: ControlType.String, title: "Titolo" },
+    title: { type: ControlType.String, title: "Titolo", displayTextArea: true },
     selectPeopleLabelFont: {
         type: ControlType.Font,
         title: "Gruppo · Font",
@@ -1974,6 +1974,7 @@ addPropertyControls(RSVPGoogleSheets, {
     searchPlaceholder: {
         type: ControlType.String,
         title: "Placeholder ricerca",
+        displayTextArea: true,
     },
 
     showShuttle: {
@@ -1994,104 +1995,119 @@ addPropertyControls(RSVPGoogleSheets, {
         defaultValue: "Carne\nPesce\nVegetariano",
     },
 
-    attendingLabel: { type: ControlType.String, title: "Label presenza" },
-    yesLabel: { type: ControlType.String, title: "Label sì" },
-    noLabel: { type: ControlType.String, title: "Label no" },
+    attendingLabel: { type: ControlType.String, title: "Label presenza", displayTextArea: true },
+    yesLabel: { type: ControlType.String, title: "Label sì", displayTextArea: true },
+    noLabel: { type: ControlType.String, title: "Label no", displayTextArea: true },
     shuttleYesText: {
         type: ControlType.String,
         title: "Navetta testo Sì",
+        displayTextArea: true,
     },
 
     shuttleNoText: {
         type: ControlType.String,
         title: "Navetta testo No",
+        displayTextArea: true,
     },
     busInfoLinkText: {
         type: ControlType.String,
         title: "Link info bus",
+        displayTextArea: true,
     },
     busInfoModalText: {
         type: ControlType.String,
         title: "Testo modale bus",
         displayTextArea: true,
     },
-    menuLabel: { type: ControlType.String, title: "Label menu" },
-    allergiesLabel: { type: ControlType.String, title: "Label allergie" },
+    menuLabel: { type: ControlType.String, title: "Label menu", displayTextArea: true },
+    allergiesLabel: { type: ControlType.String, title: "Label allergie", displayTextArea: true },
     requiredPlaceholderLabel: {
         type: ControlType.String,
         title: "Label obbligatorio",
+        displayTextArea: true,
     },
     optionalPlaceholderLabel: {
         type: ControlType.String,
         title: "Label opzionale",
+        displayTextArea: true,
     },
-    shuttleLabel: { type: ControlType.String, title: "Label navetta" },
-    notesLabel: { type: ControlType.String, title: "Label note" },
-    selectPeopleLabel: { type: ControlType.String, title: "Label gruppo" },
+    shuttleLabel: { type: ControlType.String, title: "Label navetta", displayTextArea: true },
+    notesLabel: { type: ControlType.String, title: "Label note", displayTextArea: true },
+    selectPeopleLabel: { type: ControlType.String, title: "Label gruppo", displayTextArea: true },
 
-    submitLabel: { type: ControlType.String, title: "Testo bottone" },
-    successTitle: { type: ControlType.String, title: "Titolo successo" },
-    successSubtitle: { type: ControlType.String, title: "Testo successo" },
+    submitLabel: { type: ControlType.String, title: "Testo bottone", displayTextArea: true },
+    successTitle: { type: ControlType.String, title: "Titolo successo", displayTextArea: true },
+    successSubtitle: { type: ControlType.String, title: "Testo successo", displayTextArea: true },
     successLottieFile: {
         type: ControlType.File,
         title: "Lottie JSON",
         allowedFileTypes: ["json"],
     },
 
-    searchButtonLabel: { type: ControlType.String, title: "Testo Cerca" },
-    resetLabel: { type: ControlType.String, title: "Testo Ricomincia" },
+    searchButtonLabel: { type: ControlType.String, title: "Testo Cerca", displayTextArea: true },
+    resetLabel: { type: ControlType.String, title: "Testo Ricomincia", displayTextArea: true },
 
     endpointMissingText: {
         type: ControlType.String,
         title: "Mess. endpoint mancante",
+        displayTextArea: true,
     },
-    searchMinCharsError: { type: ControlType.String, title: "Err. ricerca corta" },
-    searchGenericError: { type: ControlType.String, title: "Err. ricerca" },
-    noResultsText: { type: ControlType.String, title: "Mess. no risultati" },
-    familyLoadErrorText: { type: ControlType.String, title: "Err. caricamento gruppo" },
-    submitLoadingLabel: { type: ControlType.String, title: "Invio in corso" },
+    searchMinCharsError: { type: ControlType.String, title: "Err. ricerca corta", displayTextArea: true },
+    searchGenericError: { type: ControlType.String, title: "Err. ricerca", displayTextArea: true },
+    noResultsText: { type: ControlType.String, title: "Mess. no risultati", displayTextArea: true },
+    familyLoadErrorText: { type: ControlType.String, title: "Err. caricamento gruppo", displayTextArea: true },
+    submitLoadingLabel: { type: ControlType.String, title: "Invio in corso", displayTextArea: true },
     searchLoaderLottieFile: {
         type: ControlType.File,
         title: "Loader Lottie JSON",
         allowedFileTypes: ["json"],
     },
-    submitGenericError: { type: ControlType.String, title: "Err. invio" },
+    submitGenericError: { type: ControlType.String, title: "Err. invio", displayTextArea: true },
     serverInvalidResponseError: {
         type: ControlType.String,
         title: "Err. risposta server",
+        displayTextArea: true,
     },
     noMoreInfoNeededText: {
         type: ControlType.String,
         title: "Mess. nessuna info",
+        displayTextArea: true,
     },
 
     validateSelectGuestError: {
         type: ControlType.String,
         title: "Err. seleziona invitato",
+        displayTextArea: true,
     },
     validateSelectPeopleError: {
         type: ControlType.String,
         title: "Err. seleziona persone",
+        displayTextArea: true,
     },
     validateIncompleteDataError: {
         type: ControlType.String,
         title: "Err. dati incompleti",
+        displayTextArea: true,
     },
     validateAttendanceErrorTemplate: {
         type: ControlType.String,
         title: "Err. presenza ({name})",
+        displayTextArea: true,
     },
     validateMenuErrorTemplate: {
         type: ControlType.String,
         title: "Err. menu ({name})",
+        displayTextArea: true,
     },
     validateAllergiesErrorTemplate: {
         type: ControlType.String,
         title: "Err. allergie ({name})",
+        displayTextArea: true,
     },
     validateShuttleErrorTemplate: {
         type: ControlType.String,
         title: "Err. navetta ({name})",
+        displayTextArea: true,
     },
 
     commonBorderColor: {
