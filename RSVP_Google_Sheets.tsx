@@ -982,13 +982,25 @@ export default function RSVPGoogleSheets(props: any) {
     }
 
     function RadioMark({ active }: { active: boolean }) {
+        const fixedStyle: React.CSSProperties = {
+            width: UI_RADIO_SIZE,
+            height: UI_RADIO_SIZE,
+            minWidth: UI_RADIO_SIZE,
+            minHeight: UI_RADIO_SIZE,
+            flexShrink: 0,
+        }
+
         return active ? (
-            <CircleDot size={UI_RADIO_SIZE} aria-hidden="true" />
+            <CircleDot
+                size={UI_RADIO_SIZE}
+                aria-hidden="true"
+                style={fixedStyle}
+            />
         ) : (
             <Circle
                 size={UI_RADIO_SIZE}
                 aria-hidden="true"
-                style={{ opacity: 0.65 }}
+                style={{ ...fixedStyle, opacity: 0.65 }}
             />
         )
     }
