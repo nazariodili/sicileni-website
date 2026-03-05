@@ -215,6 +215,8 @@ export default function RSVPGoogleSheets(props: any) {
         searchButtonLabel,
         shuttleYesText,
         shuttleNoText,
+        busInfoLinkText,
+        busInfoModalText,
 
         // service copy
         endpointMissingText,
@@ -355,6 +357,7 @@ export default function RSVPGoogleSheets(props: any) {
     const [submitLoading, setSubmitLoading] = React.useState(false)
     const [submitError, setSubmitError] = React.useState<string | null>(null)
     const [submitted, setSubmitted] = React.useState(false)
+    const [isBusInfoModalOpen, setIsBusInfoModalOpen] = React.useState(false)
     const [submitStatus, setSubmitStatus] = React.useState<
         "idle" | "loading" | "success" | "error"
     >("idle")
@@ -963,6 +966,55 @@ export default function RSVPGoogleSheets(props: any) {
             borderRadius: 10,
             cursor: "pointer",
             boxSizing: "border-box" as const,
+        },
+
+        textLink: {
+            ...(baseFontStyle || {}),
+            marginTop: 10,
+            border: "none",
+            background: "transparent",
+            color: "#2B8BD9",
+            textDecoration: "none",
+            fontSize: 16,
+            padding: 0,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+        },
+
+        modalOverlay: {
+            position: "fixed" as const,
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.38)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            zIndex: 9999,
+        },
+
+        modalCard: {
+            ...(baseFontStyle || {}),
+            width: "100%",
+            maxWidth: 560,
+            background: "#fff",
+            borderRadius: 14,
+            border: `${UI_BORDER_WIDTH}px solid ${UI_BORDER_COLOR}`,
+            boxSizing: "border-box" as const,
+            padding: 18,
+            color: textColor,
+        },
+
+        modalCloseButton: {
+            border: "none",
+            background: "transparent",
+            color: mutedTextColor,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginLeft: "auto",
+            padding: 0,
         },
     } as const
 
@@ -1588,6 +1640,18 @@ export default function RSVPGoogleSheets(props: any) {
                                                                         />
                                                                     </button>
                                                                 </div>
+
+                                                                <button
+                                                                    type="button"
+                                                                    style={s.textLink}
+                                                                    onClick={() =>
+                                                                        setIsBusInfoModalOpen(
+                                                                            true
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    {busInfoLinkText}
+                                                                </button>
                                                             </div>
                                                         ) : null}
 
@@ -1690,6 +1754,40 @@ export default function RSVPGoogleSheets(props: any) {
                     </div>
                 </div>
             ) : null}
+
+            {isBusInfoModalOpen ? (
+                <div
+                    style={s.modalOverlay}
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={busInfoLinkText}
+                    onClick={() => setIsBusInfoModalOpen(false)}
+                >
+                    <div
+                        style={s.modalCard}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            style={s.modalCloseButton}
+                            onClick={() => setIsBusInfoModalOpen(false)}
+                            aria-label="Chiudi informazioni bus"
+                        >
+                            <X size={18} />
+                        </button>
+
+                        <p
+                            style={{
+                                ...(baseFontStyle || {}),
+                                margin: "8px 0 0",
+                                whiteSpace: "pre-wrap",
+                            }}
+                        >
+                            {busInfoModalText}
+                        </p>
+                    </div>
+                </div>
+            ) : null}
         </div>
     )
 }
@@ -1706,6 +1804,9 @@ RSVPGoogleSheets.defaultProps = {
     noLabel: "Non ci sarò",
     shuttleYesText: "Bus da Palermo",
     shuttleNoText: "No bus",
+    busInfoLinkText: "maggiori informazioni sul bus…",
+    busInfoModalText:
+        "Inserisci qui tutte le informazioni aggiuntive sul servizio bus.",
     menuLabel: "Menu",
     allergiesLabel: "Allergie / Intolleranze",
     shuttleLabel: "Voglio il bus navetta",
@@ -1891,6 +1992,15 @@ addPropertyControls(RSVPGoogleSheets, {
     shuttleNoText: {
         type: ControlType.String,
         title: "Navetta testo No",
+    },
+    busInfoLinkText: {
+        type: ControlType.String,
+        title: "Link info bus",
+    },
+    busInfoModalText: {
+        type: ControlType.String,
+        title: "Testo modale bus",
+        displayTextArea: true,
     },
     menuLabel: { type: ControlType.String, title: "Label menu" },
     allergiesLabel: { type: ControlType.String, title: "Label allergie" },
