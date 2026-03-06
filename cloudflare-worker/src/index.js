@@ -160,6 +160,7 @@ async function handleServeImage(request, env, key) {
   const url = new URL(request.url)
 
   const requestedWidth = Number(url.searchParams.get("w") || 0)
+  const downloadRequested = url.searchParams.get("download") === "1"
   const requestedQuality = Number(url.searchParams.get("q") || 85)
 
   const width = requestedWidth > 0 ? clamp(requestedWidth, 100, 2400) : null
@@ -170,6 +171,11 @@ async function handleServeImage(request, env, key) {
 
   headers.set("Cache-Control", "public, max-age=31536000, immutable")
   for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v)
+
+  if (downloadRequested) {
+    const fileName = key.split("/").pop() || "photo"
+    headers.set("Content-Disposition", `attachment; filename="${fileName}"`)
+  }
 
   const contentType =
     headers.get("Content-Type") || "image/jpeg"
