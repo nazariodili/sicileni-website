@@ -153,6 +153,10 @@ function getLightboxUrl(url: string) {
     return appendImageParams(url, { w: 600, q: 85 })
 }
 
+function getDownloadUrl(url: string) {
+    return appendImageParams(url, { download: 1 })
+}
+
 export default function WeddingPhotoWall(props: Props) {
     const {
         workerBaseUrl,
@@ -690,7 +694,7 @@ export default function WeddingPhotoWall(props: Props) {
                             }}
                             onClick={() => {
                                 const link = document.createElement("a")
-                                link.href = currentPhoto.url
+                                link.href = getDownloadUrl(currentPhoto.url)
                                 link.download =
                                     currentPhoto.key
                                         ?.split("/")
