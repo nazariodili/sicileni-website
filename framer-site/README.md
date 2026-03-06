@@ -20,4 +20,5 @@ Questa cartella contiene i code component da importare in Framer.
 3. Imposta `workerBaseUrl` con il dominio del Worker (`https://<worker>.workers.dev`).
 4. Imposta `eventCode` con il codice evento usato nell'header `X-Event-Code`.
 5. Personalizza testi e layout (colonne, gap, radius, ordine foto) dalle property controls.
-6. Il wall mostra sempre una prima cella di upload (bordo tratteggiato) dentro la griglia, mentre il refresh in header usa una sola icona.
+6. Il wall mostra sempre una prima cella di upload dentro la griglia (stile bordo/sfondo configurabile) e il refresh in header usa una icona Lucide configurabile.
+7. In Framer puoi personalizzare direttamente props di icone, testi, stile testo e stile bordo/sfondo della prima cella upload.

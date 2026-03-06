@@ -14,7 +14,7 @@ Contiene i componenti custom da usare nel progetto Framer.
 ### Contenuto
 - `framer-site/components/RSVP_Google_Sheets.tsx`
 - `framer-site/components/WeddingPhotoWall.tsx`
-  - UI aggiornata: upload dalla prima card della griglia con bordo tratteggiato + refresh con icona.
+  - UI aggiornata: upload dalla prima card della griglia + refresh a icona, con props Framer per icone, testi, font e stile bordo/sfondo della card upload.
 - `framer-site/README.md`
 
 ### Come usarlo
