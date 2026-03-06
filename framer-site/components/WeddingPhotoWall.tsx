@@ -142,7 +142,6 @@ export default function WeddingPhotoWall(props: Props) {
     )
 
     const inputRef = React.useRef<HTMLInputElement | null>(null)
-    const lightboxThumbStripRef = React.useRef<HTMLDivElement | null>(null)
     const successOverlayTimeoutRef = React.useRef<number | null>(null)
     const touchStartXRef = React.useRef<number | null>(null)
 
@@ -335,19 +334,6 @@ export default function WeddingPhotoWall(props: Props) {
         }
     }, [])
 
-    React.useEffect(() => {
-        if (!hasLightbox || !lightboxThumbStripRef.current || activeIndex === null) return
-
-        const activeThumb = lightboxThumbStripRef.current.querySelector(
-            `[data-thumb-index="${activeIndex}"]`
-        ) as HTMLElement | null
-
-        activeThumb?.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest",
-            inline: "center",
-        })
-    }, [activeIndex, hasLightbox])
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -533,25 +519,7 @@ export default function WeddingPhotoWall(props: Props) {
                             <ChevronRight size={24} />
                         </button>
 
-                        <div ref={lightboxThumbStripRef} style={styles.lightboxThumbStrip}>
-                            {photos.map((photo, thumbIndex) => {
-                                const isActive = thumbIndex === activeIndex
-                                return (
-                                    <button
-                                        key={photo.key}
-                                        data-thumb-index={thumbIndex}
-                                        style={{
-                                            ...styles.lightboxThumbButton,
-                                            ...(isActive ? styles.lightboxThumbButtonActive : null),
-                                        }}
-                                        onClick={() => setActiveIndex(thumbIndex)}
-                                        aria-label={`Apri foto ${thumbIndex + 1}`}
-                                    >
-                                        <img src={photo.url} alt="" style={styles.lightboxThumbImg} />
-                                    </button>
-                                )
-                            })}
-                        </div>
+
                     </div>
                 </div>
             ) : null}
@@ -745,10 +713,10 @@ const styles: Record<string, React.CSSProperties> = {
         placeItems: "center",
     },
     lightboxCloseButton: {
-        position: "absolute",
-        top: -2,
-        right: -2,
-        zIndex: 2,
+        position: "fixed",
+        top: 18,
+        right: 18,
+        zIndex: 1000001,
     },
     lightboxNavButton: {
         position: "absolute",
@@ -768,39 +736,6 @@ const styles: Record<string, React.CSSProperties> = {
     },
     lightboxNavLeft: { left: 8 },
     lightboxNavRight: { right: 8 },
-    lightboxThumbStrip: {
-        width: "100%",
-        display: "flex",
-        gap: 8,
-        overflowX: "auto",
-        paddingBottom: 4,
-        scrollbarWidth: "thin",
-    },
-    lightboxThumbButton: {
-        appearance: "none",
-        border: "1px solid rgba(255,255,255,0.22)",
-        borderRadius: 10,
-        padding: 0,
-        overflow: "hidden",
-        minWidth: 66,
-        width: 66,
-        height: 66,
-        cursor: "pointer",
-        opacity: 0.62,
-        transition: "all 160ms ease",
-        background: "rgba(17, 24, 39, 0.6)",
-    },
-    lightboxThumbButtonActive: {
-        opacity: 1,
-        border: "2px solid rgba(255,255,255,0.92)",
-        transform: "translateY(-1px)",
-    },
-    lightboxThumbImg: {
-        width: "100%",
-        height: "100%",
-        objectFit: "cover",
-        display: "block",
-    },
 }
 
 addPropertyControls(WeddingPhotoWall, {
