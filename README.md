@@ -103,3 +103,45 @@ curl -X POST "https://<worker>.workers.dev/api/upload" \
 - Limite upload per file: **15MB**.
 - MIME consentiti: `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`.
 - Le immagini sono salvate con prefisso `uploads/` in R2.
+
+---
+
+## Alleggerire il PhotoWall con Cloudflare Images
+
+Se il wall fotografico contiene molte immagini ad alta risoluzione, il collo di bottiglia principale è il peso dei file originali serviti al browser. Con Cloudflare Images puoi servire automaticamente varianti ottimizzate (thumbnail per griglia + immagine più grande per lightbox), riducendo banda, tempi di caricamento e memoria usata nel client.
+
+### Strategia consigliata
+1. **Mantieni R2 come storage sorgente** per gli originali.
+2. **Servi la griglia con immagini ridotte** (es. larghezza 600px, qualità 75, fit cover).
+3. **Servi il lightbox con variante più ampia** (es. larghezza 1600px, qualità 82, fit contain).
+4. **Aggiungi cache lunga sulle varianti** (`Cache-Control: public, max-age=31536000, immutable`).
+
+### Integrazione rapida nel Worker
+In `GET /img/<key>`, invece di streammare sempre l'originale R2, usa la trasformazione immagini Cloudflare via `fetch` con opzione `cf.image`:
+
+```js
+const imageWidth = Number(url.searchParams.get("w") || 600)
+const imageQuality = Number(url.searchParams.get("q") || 75)
+
+const originalUrl = `${base}/r2/${encodeURIComponent(key)}`
+const transformed = await fetch(originalUrl, {
+  cf: {
+    image: {
+      width: imageWidth,
+      quality: imageQuality,
+      fit: "cover",
+      format: "auto",
+      metadata: "none",
+    },
+  },
+})
+```
+
+Poi dal componente Framer puoi richiedere URL separati:
+- Griglia: `/img/<key>?w=600&q=75`
+- Lightbox: `/img/<key>?w=1600&q=82`
+
+### Impatto atteso
+- Meno MB trasferiti per ogni refresh della gallery.
+- Scroll più fluido nel PhotoWall su mobile.
+- Minore probabilità di jank quando si apre il lightbox.
