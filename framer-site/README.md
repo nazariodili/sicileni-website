@@ -23,8 +23,10 @@ Questa cartella contiene i code component da importare in Framer.
 6. La action bar è sempre **sticky bottom** (senza comportamento responsive top su desktop).
 7. Le props visuali della action bar usano i controlli Framer dedicati: `Fill`, `Padding`, `Radius`, `Border`, `Shadows`, più `Z Index`.
 8. Upload e refresh sono accessibili dalla action bar (icone Lucide configurabili + label ARIA personalizzabili).
-9. Dopo upload riuscito non viene mostrato il toast testuale: le foto appena caricate vengono evidenziate con overlay verde + check per 2 secondi (configurabile).
-10. Overlay foto con UX moderna: frecce laterali, navigazione da tastiera (← → Esc) e swipe su touch.
-11. L'immagine in overlay è mostrata in `object-fit: contain` per rispettare il formato originale.
-12. Le foto della galleria vengono caricate in lazy loading progressivo: all'inizio viene renderizzato un primo blocco, poi gli altri elementi si aggiungono automaticamente durante lo scroll.
-13. Puoi controllare la soglia del lazy loading da Framer con la property control `Lazy · Batch` (numero di foto iniziali e incrementi successivi ad ogni trigger di scroll).
+9. Rimossa la cella fissa di upload nella griglia: la galleria ora mostra solo le foto, mentre l'upload resta disponibile dalla action bar sticky.
+10. Dopo upload riuscito non viene mostrato il toast testuale: le foto appena caricate vengono evidenziate con overlay verde + check per 2 secondi (configurabile).
+11. Overlay foto con UX moderna: frecce laterali, navigazione da tastiera (← → Esc) e swipe su touch.
+12. L'immagine in overlay è mostrata in `object-fit: contain` per rispettare il formato originale.
+13. Le foto della galleria vengono caricate in lazy loading progressivo: all'inizio viene renderizzato un primo blocco, poi gli altri elementi si aggiungono automaticamente durante lo scroll.
+14. Puoi controllare la soglia del lazy loading da Framer con la property control `Lazy · Batch` (numero di foto iniziali e incrementi successivi ad ogni trigger di scroll).
+15. Nuova property control `Canvas · Max foto`: in preview dentro il canvas di Framer puoi limitare quante immagini renderizzare (es. 24) per evitare rallentamenti durante l'editing.

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { addPropertyControls, ControlType } from "framer"
+import { addPropertyControls, ControlType, RenderTarget } from "framer"
 import {
     Check,
     ChevronLeft,
@@ -39,8 +39,6 @@ type Props = {
     workerBaseUrl: string
     eventCode: string
 
-    uploadButtonLabel: string
-    uploadHintLabel: string
     refreshAriaLabel: string
     refreshingLabel: string
     errorLabel: string
@@ -56,6 +54,7 @@ type Props = {
     maxFileMB: number
     newestFirst: boolean
     lazyLoadBatchSize: number
+    canvasPreviewLimit: number
 
     successOverlayDurationMs: number
     successOverlayColor: string
@@ -74,15 +73,6 @@ type Props = {
     actionBarBottom: number
     actionBarZIndex: number
     uploadActionAriaLabel: string
-
-    uploadCardBackground: string
-    uploadCardBorderColor: string
-    uploadCardBorderWidth: number
-    uploadCardBorderStyle: React.CSSProperties["borderStyle"]
-    uploadIconColor: string
-    uploadIconSize: number
-    uploadLabelFont: React.CSSProperties
-    uploadHintFont: React.CSSProperties
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -141,8 +131,6 @@ export default function WeddingPhotoWall(props: Props) {
     const {
         workerBaseUrl,
         eventCode,
-        uploadButtonLabel,
-        uploadHintLabel,
         refreshAriaLabel,
         refreshingLabel,
         errorLabel,
@@ -155,6 +143,7 @@ export default function WeddingPhotoWall(props: Props) {
         maxFileMB,
         newestFirst,
         lazyLoadBatchSize,
+        canvasPreviewLimit,
         successOverlayDurationMs,
         successOverlayColor,
         successCheckIconSize,
@@ -171,14 +160,6 @@ export default function WeddingPhotoWall(props: Props) {
         actionBarBottom,
         actionBarZIndex,
         uploadActionAriaLabel,
-        uploadCardBackground,
-        uploadCardBorderColor,
-        uploadCardBorderWidth,
-        uploadCardBorderStyle,
-        uploadIconColor,
-        uploadIconSize,
-        uploadLabelFont,
-        uploadHintFont,
     } = props
 
     const photosPageSize = clamp(lazyLoadBatchSize, 1, 120)
@@ -211,6 +192,16 @@ export default function WeddingPhotoWall(props: Props) {
     const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
 
     const [visibleCount, setVisibleCount] = React.useState(photosPageSize)
+
+    const isCanvasPreview = React.useMemo(() => {
+        try {
+            return RenderTarget.current() === RenderTarget.canvas
+        } catch {
+            return false
+        }
+    }, [])
+
+    const effectiveCanvasPreviewLimit = clamp(canvasPreviewLimit, 0, 120)
 
     const hasLightbox =
         activeIndex !== null && activeIndex >= 0 && activeIndex < photos.length
@@ -429,11 +420,18 @@ export default function WeddingPhotoWall(props: Props) {
         return () => observer.disconnect()
     }, [photos.length, photosPageSize, visibleCount])
 
-    const visiblePhotos = React.useMemo(
-        () => photos.slice(0, visibleCount),
-        [photos, visibleCount]
-    )
+    const visiblePhotos = React.useMemo(() => {
+        if (isCanvasPreview && effectiveCanvasPreviewLimit > 0) {
+            return photos.slice(0, effectiveCanvasPreviewLimit)
+        }
 
+        return photos.slice(0, visibleCount)
+    }, [
+        photos,
+        visibleCount,
+        isCanvasPreview,
+        effectiveCanvasPreviewLimit,
+    ])
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -475,31 +473,6 @@ export default function WeddingPhotoWall(props: Props) {
                     gap,
                 }}
             >
-                <button
-                    style={{
-                        ...styles.uploadCard,
-                        borderRadius: cornerRadius,
-                        color: uploadIconColor,
-                        background: uploadCardBackground,
-                        borderColor: uploadCardBorderColor,
-                        borderWidth: clamp(uploadCardBorderWidth, 0, 12),
-                        borderStyle: uploadCardBorderStyle,
-                        opacity: uploading ? 0.7 : 1,
-                        pointerEvents: uploading ? "none" : "auto",
-                    }}
-                    onClick={handlePickFiles}
-                >
-                    <UploadIcon size={clamp(uploadIconSize, 14, 120)} strokeWidth={1.8} />
-                    <span style={{ ...styles.uploadCardLabel, ...uploadLabelFont }}>
-                        {uploadButtonLabel}
-                    </span>
-                    {uploadHintLabel ? (
-                        <span style={{ ...styles.uploadCardHint, ...uploadHintFont }}>
-                            {uploadHintLabel}
-                        </span>
-                    ) : null}
-                </button>
-
                 {visiblePhotos.map((p, index) => (
                     <button
                         key={p.key}
@@ -536,7 +509,7 @@ export default function WeddingPhotoWall(props: Props) {
                     </button>
                 ))}
 
-                {visibleCount < photos.length ? (
+                {!isCanvasPreview && visibleCount < photos.length ? (
                     <div
                         ref={loadMoreRef}
                         style={{
@@ -577,7 +550,7 @@ export default function WeddingPhotoWall(props: Props) {
                         }}
                         onClick={handlePickFiles}
                         aria-label={uploadActionAriaLabel}
-                        title={uploadButtonLabel}
+                        title={uploadActionAriaLabel}
                     >
                         <UploadIcon size={clamp(actionIconSize, 14, 64)} strokeWidth={2.1} />
                     </button>
@@ -684,8 +657,6 @@ export default function WeddingPhotoWall(props: Props) {
 WeddingPhotoWall.defaultProps = {
     workerBaseUrl: "",
     eventCode: "",
-    uploadButtonLabel: "ADD A PHOTO",
-    uploadHintLabel: "",
     refreshAriaLabel: "Aggiorna foto",
     refreshingLabel: "Carico…",
     errorLabel: "Errore",
@@ -697,6 +668,8 @@ WeddingPhotoWall.defaultProps = {
     maxFilesPerBatch: 20,
     maxFileMB: 15,
     newestFirst: true,
+    lazyLoadBatchSize: 18,
+    canvasPreviewLimit: 24,
     successOverlayDurationMs: 2000,
     successOverlayColor: "rgba(187, 247, 208, 0.58)",
     successCheckIconSize: 64,
@@ -717,21 +690,6 @@ WeddingPhotoWall.defaultProps = {
     actionBarBottom: 18,
     actionBarZIndex: 1100,
     uploadActionAriaLabel: "Carica foto",
-    uploadCardBackground: "rgba(247, 231, 231, 0.85)",
-    uploadCardBorderColor: "rgba(148, 92, 106, 0.24)",
-    uploadCardBorderWidth: 2,
-    uploadCardBorderStyle: "dashed",
-    uploadIconColor: "rgba(148, 92, 106, 0.95)",
-    uploadIconSize: 38,
-    uploadLabelFont: {
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: "0.12em",
-    },
-    uploadHintFont: {
-        fontSize: 11,
-        fontWeight: 500,
-    },
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -759,22 +717,6 @@ const styles: Record<string, React.CSSProperties> = {
         height: 1,
         pointerEvents: "none",
     },
-    uploadCard: {
-        appearance: "none",
-        border: "2px dashed rgba(148, 92, 106, 0.24)",
-        background: "rgba(247, 231, 231, 0.85)",
-        cursor: "pointer",
-        aspectRatio: "1 / 1",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 14,
-        padding: "24px 20px",
-        textAlign: "center",
-    },
-    uploadCardLabel: { margin: 0 },
-    uploadCardHint: { margin: 0, opacity: 0.85 },
     card: {
         appearance: "none",
         border: "1px solid rgba(0,0,0,0.10)",
@@ -919,17 +861,6 @@ addPropertyControls(WeddingPhotoWall, {
         type: ControlType.String,
         title: "Event Code",
     },
-
-    uploadButtonLabel: {
-        type: ControlType.String,
-        title: "Upload · Testo",
-        defaultValue: "ADD A PHOTO",
-    },
-    uploadHintLabel: {
-        type: ControlType.String,
-        title: "Upload · Hint",
-        defaultValue: "",
-    },
     uploadIcon: {
         type: ControlType.Enum,
         title: "Upload · Icona",
@@ -941,63 +872,6 @@ addPropertyControls(WeddingPhotoWall, {
         type: ControlType.String,
         title: "Upload · ARIA",
         defaultValue: "Carica foto",
-    },
-    uploadCardBackground: {
-        type: ControlType.Color,
-        title: "Upload · Fill",
-        defaultValue: "rgba(247, 231, 231, 0.85)",
-    },
-    uploadCardBorderColor: {
-        type: ControlType.Color,
-        title: "Upload · Border",
-        defaultValue: "rgba(148, 92, 106, 0.24)",
-    },
-    uploadCardBorderWidth: {
-        type: ControlType.Number,
-        title: "Upload · Border W",
-        defaultValue: 2,
-        min: 0,
-        max: 12,
-        step: 1,
-    },
-    uploadCardBorderStyle: {
-        type: ControlType.Enum,
-        title: "Upload · Border S",
-        options: ["solid", "dashed", "dotted"],
-        optionTitles: ["Solid", "Dashed", "Dotted"],
-        defaultValue: "dashed",
-    },
-    uploadIconColor: {
-        type: ControlType.Color,
-        title: "Upload · Icon color",
-        defaultValue: "rgba(148, 92, 106, 0.95)",
-    },
-    uploadIconSize: {
-        type: ControlType.Number,
-        title: "Upload · Icon size",
-        defaultValue: 38,
-        min: 14,
-        max: 120,
-        step: 1,
-    },
-    uploadLabelFont: {
-        type: ControlType.Font,
-        title: "Upload · Label Font",
-        defaultValue: {
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: "0.12em",
-        },
-        controls: "extended",
-    },
-    uploadHintFont: {
-        type: ControlType.Font,
-        title: "Upload · Hint Font",
-        defaultValue: {
-            fontSize: 11,
-            fontWeight: 500,
-        },
-        controls: "extended",
     },
 
     refreshIcon: {
@@ -1150,6 +1024,16 @@ addPropertyControls(WeddingPhotoWall, {
         min: 1,
         max: 120,
         step: 1,
+    },
+    canvasPreviewLimit: {
+        type: ControlType.Number,
+        title: "Canvas · Max foto",
+        defaultValue: 24,
+        min: 0,
+        max: 120,
+        step: 1,
+        description:
+            "In Framer canvas mostra solo le prime N foto per evitare rallentamenti.",
     },
     successOverlayDurationMs: {
         type: ControlType.Number,
