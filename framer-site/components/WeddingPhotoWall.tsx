@@ -127,6 +127,31 @@ function toShadowCss(shadow: BoxShadowValue) {
     return normalized.length > 0 ? normalized.join(", ") : "none"
 }
 
+function appendImageParams(
+    url: string,
+    params: Record<string, string | number | null | undefined>
+) {
+    try {
+        const u = new URL(url)
+        Object.entries(params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined && value !== "") {
+                u.searchParams.set(key, String(value))
+            }
+        })
+        return u.toString()
+    } catch {
+        return url
+    }
+}
+
+function getThumbUrl(url: string) {
+    return appendImageParams(url, { w: 400, q: 78 })
+}
+
+function getLightboxUrl(url: string) {
+    return appendImageParams(url, { w: 600, q: 85 })
+}
+
 export default function WeddingPhotoWall(props: Props) {
     const {
         workerBaseUrl,
@@ -164,7 +189,10 @@ export default function WeddingPhotoWall(props: Props) {
 
     const photosPageSize = clamp(lazyLoadBatchSize, 1, 120)
 
-    const UploadIcon = React.useMemo(() => getUploadIcon(uploadIcon), [uploadIcon])
+    const UploadIcon = React.useMemo(
+        () => getUploadIcon(uploadIcon),
+        [uploadIcon]
+    )
     const RefreshIcon = React.useMemo(
         () => getRefreshIcon(refreshIcon),
         [refreshIcon]
@@ -182,9 +210,9 @@ export default function WeddingPhotoWall(props: Props) {
 
     const [activeIndex, setActiveIndex] = React.useState<number | null>(null)
 
-    const [successOverlayKeys, setSuccessOverlayKeys] = React.useState<Set<string>>(
-        new Set()
-    )
+    const [successOverlayKeys, setSuccessOverlayKeys] = React.useState<
+        Set<string>
+    >(new Set())
 
     const inputRef = React.useRef<HTMLInputElement | null>(null)
     const successOverlayTimeoutRef = React.useRef<number | null>(null)
@@ -232,10 +260,13 @@ export default function WeddingPhotoWall(props: Props) {
         setError(null)
         try {
             const res = await fetch(`${base}/api/photos`, { method: "GET" })
-            if (!res.ok) throw new Error(`GET /api/photos failed (${res.status})`)
+            if (!res.ok)
+                throw new Error(`GET /api/photos failed (${res.status})`)
 
             const data = await res.json()
-            const list: PhotoItem[] = Array.isArray(data?.photos) ? data.photos : []
+            const list: PhotoItem[] = Array.isArray(data?.photos)
+                ? data.photos
+                : []
             const ordered = newestFirst ? list : [...list].reverse()
             setPhotos(ordered)
             setActiveIndex((prev) => {
@@ -291,7 +322,10 @@ export default function WeddingPhotoWall(props: Props) {
             return
         }
 
-        const picked = Array.from(files).slice(0, clamp(maxFilesPerBatch, 1, 100))
+        const picked = Array.from(files).slice(
+            0,
+            clamp(maxFilesPerBatch, 1, 100)
+        )
         const maxBytes = clamp(maxFileMB, 1, 50) * 1024 * 1024
 
         const validated: File[] = []
@@ -303,7 +337,9 @@ export default function WeddingPhotoWall(props: Props) {
                 continue
             }
             if (f.size > maxBytes) {
-                validationErrors.push(`${f.name}: troppo grande (${formatBytes(f.size)})`)
+                validationErrors.push(
+                    `${f.name}: troppo grande (${formatBytes(f.size)})`
+                )
                 continue
             }
             validated.push(f)
@@ -323,20 +359,28 @@ export default function WeddingPhotoWall(props: Props) {
         try {
             for (const f of validated) {
                 const uploadResult = await uploadViaWorker(f)
-                if (typeof uploadResult?.key === "string") uploadedKeys.add(uploadResult.key)
-                if (typeof uploadResult?.url === "string") uploadedUrls.add(uploadResult.url)
+                if (typeof uploadResult?.key === "string")
+                    uploadedKeys.add(uploadResult.key)
+                if (typeof uploadResult?.url === "string")
+                    uploadedUrls.add(uploadResult.url)
             }
 
             const refreshedPhotos = (await fetchPhotos()) || []
 
             const uploadedMatches = refreshedPhotos
-                .filter((photo) => uploadedKeys.has(photo.key) || uploadedUrls.has(photo.url))
+                .filter(
+                    (photo) =>
+                        uploadedKeys.has(photo.key) ||
+                        uploadedUrls.has(photo.url)
+                )
                 .map((photo) => photo.key)
 
             const fallbackCount = validated.length
             const fallbackMatches = refreshedPhotos
                 .slice(
-                    newestFirst ? 0 : Math.max(0, refreshedPhotos.length - fallbackCount),
+                    newestFirst
+                        ? 0
+                        : Math.max(0, refreshedPhotos.length - fallbackCount),
                     newestFirst ? fallbackCount : refreshedPhotos.length
                 )
                 .map((photo) => photo.key)
@@ -350,10 +394,13 @@ export default function WeddingPhotoWall(props: Props) {
                 if (successOverlayTimeoutRef.current) {
                     window.clearTimeout(successOverlayTimeoutRef.current)
                 }
-                successOverlayTimeoutRef.current = window.setTimeout(() => {
-                    setSuccessOverlayKeys(new Set())
-                    successOverlayTimeoutRef.current = null
-                }, clamp(successOverlayDurationMs, 500, 8000))
+                successOverlayTimeoutRef.current = window.setTimeout(
+                    () => {
+                        setSuccessOverlayKeys(new Set())
+                        successOverlayTimeoutRef.current = null
+                    },
+                    clamp(successOverlayDurationMs, 500, 8000)
+                )
             }
         } catch (e: any) {
             setError(e?.message || "Upload failed")
@@ -420,18 +467,30 @@ export default function WeddingPhotoWall(props: Props) {
         return () => observer.disconnect()
     }, [photos.length, photosPageSize, visibleCount])
 
+    React.useEffect(() => {
+        if (!hasLightbox || activeIndex === null || photos.length === 0) return
+
+        const nextIndex = (activeIndex + 1) % photos.length
+        const prevIndex = (activeIndex - 1 + photos.length) % photos.length
+
+        const preloadUrls = [
+            getLightboxUrl(photos[nextIndex].url),
+            getLightboxUrl(photos[prevIndex].url),
+        ]
+
+        preloadUrls.forEach((src) => {
+            const img = new Image()
+            img.src = src
+        })
+    }, [hasLightbox, activeIndex, photos])
+
     const visiblePhotos = React.useMemo(() => {
         if (isCanvasPreview && effectiveCanvasPreviewLimit > 0) {
             return photos.slice(0, effectiveCanvasPreviewLimit)
         }
 
         return photos.slice(0, visibleCount)
-    }, [
-        photos,
-        visibleCount,
-        isCanvasPreview,
-        effectiveCanvasPreviewLimit,
-    ])
+    }, [photos, visibleCount, isCanvasPreview, effectiveCanvasPreviewLimit])
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -483,7 +542,7 @@ export default function WeddingPhotoWall(props: Props) {
                         onClick={() => setActiveIndex(index)}
                     >
                         <img
-                            src={p.url}
+                            src={getThumbUrl(p.url)}
                             alt=""
                             loading="lazy"
                             style={{
@@ -552,7 +611,10 @@ export default function WeddingPhotoWall(props: Props) {
                         aria-label={uploadActionAriaLabel}
                         title={uploadActionAriaLabel}
                     >
-                        <UploadIcon size={clamp(actionIconSize, 14, 64)} strokeWidth={2.1} />
+                        <UploadIcon
+                            size={clamp(actionIconSize, 14, 64)}
+                            strokeWidth={2.1}
+                        />
                     </button>
 
                     <button
@@ -563,7 +625,9 @@ export default function WeddingPhotoWall(props: Props) {
                             pointerEvents: loading ? "none" : "auto",
                         }}
                         onClick={fetchPhotos}
-                        aria-label={loading ? refreshingLabel : refreshAriaLabel}
+                        aria-label={
+                            loading ? refreshingLabel : refreshAriaLabel
+                        }
                         title={loading ? refreshingLabel : refreshAriaLabel}
                     >
                         <RefreshIcon
@@ -572,7 +636,8 @@ export default function WeddingPhotoWall(props: Props) {
                             style={
                                 loading
                                     ? {
-                                          animation: "weddingPhotoWallSpin 1s linear infinite",
+                                          animation:
+                                              "weddingPhotoWallSpin 1s linear infinite",
                                       }
                                     : undefined
                             }
@@ -594,18 +659,23 @@ export default function WeddingPhotoWall(props: Props) {
             `}</style>
 
             {hasLightbox && currentPhoto ? (
-                <div style={styles.lightboxOverlay} onClick={() => setActiveIndex(null)}>
+                <div
+                    style={styles.lightboxOverlay}
+                    onClick={() => setActiveIndex(null)}
+                >
                     <div
                         style={styles.lightboxInner}
                         onClick={(e) => e.stopPropagation()}
                         onTouchStart={(e) => {
-                            touchStartXRef.current = e.touches[0]?.clientX ?? null
+                            touchStartXRef.current =
+                                e.touches[0]?.clientX ?? null
                         }}
                         onTouchEnd={(e) => {
                             const start = touchStartXRef.current
                             const end = e.changedTouches[0]?.clientX
                             touchStartXRef.current = null
-                            if (start === null || typeof end !== "number") return
+                            if (start === null || typeof end !== "number")
+                                return
                             const delta = end - start
                             if (Math.abs(delta) < 44) return
                             if (delta > 0) goToPrev()
@@ -613,7 +683,10 @@ export default function WeddingPhotoWall(props: Props) {
                         }}
                     >
                         <button
-                            style={{ ...styles.lightboxIconButton, ...styles.lightboxCloseButton }}
+                            style={{
+                                ...styles.lightboxIconButton,
+                                ...styles.lightboxCloseButton,
+                            }}
                             onClick={() => setActiveIndex(null)}
                             aria-label="Chiudi galleria"
                             title="Chiudi"
@@ -622,7 +695,10 @@ export default function WeddingPhotoWall(props: Props) {
                         </button>
 
                         <button
-                            style={{ ...styles.lightboxNavButton, ...styles.lightboxNavLeft }}
+                            style={{
+                                ...styles.lightboxNavButton,
+                                ...styles.lightboxNavLeft,
+                            }}
                             onClick={goToPrev}
                             aria-label="Foto precedente"
                             title="Precedente"
@@ -631,22 +707,27 @@ export default function WeddingPhotoWall(props: Props) {
                         </button>
 
                         <figure style={styles.lightboxFigure}>
-                            <img src={currentPhoto.url} alt="" style={styles.lightboxImg} />
+                            <img
+                                src={getLightboxUrl(currentPhoto.url)}
+                                alt=""
+                                style={styles.lightboxImg}
+                            />
                             <figcaption style={styles.lightboxMeta}>
                                 {activeIndex! + 1} / {photos.length}
                             </figcaption>
                         </figure>
 
                         <button
-                            style={{ ...styles.lightboxNavButton, ...styles.lightboxNavRight }}
+                            style={{
+                                ...styles.lightboxNavButton,
+                                ...styles.lightboxNavRight,
+                            }}
                             onClick={goToNext}
                             aria-label="Foto successiva"
                             title="Successiva"
                         >
                             <ChevronRight size={24} />
                         </button>
-
-
                     </div>
                 </div>
             ) : null}
