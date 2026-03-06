@@ -26,3 +26,4 @@ Questa cartella contiene i code component da importare in Framer.
 10. Overlay foto con UX moderna: frecce laterali, navigazione da tastiera (← → Esc) e swipe su touch.
 11. L'immagine in overlay è mostrata in `object-fit: contain` per rispettare il formato originale.
 12. Le foto della galleria vengono caricate in lazy loading progressivo: all'inizio viene renderizzato un primo blocco, poi gli altri elementi si aggiungono automaticamente durante lo scroll.
+13. Puoi controllare la soglia del lazy loading da Framer con la property control `Lazy · Batch` (numero di foto iniziali e incrementi successivi ad ogni trigger di scroll).
