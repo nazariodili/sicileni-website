@@ -1,6 +1,7 @@
 import * as React from "react"
 import { addPropertyControls, ControlType } from "framer"
 import {
+    Check,
     ImagePlus,
     PlusSquare,
     RefreshCw,
@@ -44,6 +45,11 @@ type Props = {
     maxFilesPerBatch: number
     maxFileMB: number
     newestFirst: boolean
+
+    successOverlayDurationMs: number
+    successOverlayColor: string
+    successCheckIconSize: number
+    successCheckIconColor: string
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -104,6 +110,10 @@ export default function WeddingPhotoWall(props: Props) {
         maxFilesPerBatch,
         maxFileMB,
         newestFirst,
+        successOverlayDurationMs,
+        successOverlayColor,
+        successCheckIconSize,
+        successCheckIconColor,
     } = props
 
     const UploadIcon = React.useMemo(() => getUploadIcon(uploadIcon), [uploadIcon])
@@ -124,15 +134,12 @@ export default function WeddingPhotoWall(props: Props) {
 
     const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null)
 
-    const [uploadStatus, setUploadStatus] = React.useState<
-        {
-            name: string
-            status: "queued" | "uploading" | "done" | "error"
-            message?: string
-        }[]
-    >([])
+    const [successOverlayKeys, setSuccessOverlayKeys] = React.useState<
+        Set<string>
+    >(new Set())
 
     const inputRef = React.useRef<HTMLInputElement | null>(null)
+    const successOverlayTimeoutRef = React.useRef<number | null>(null)
 
     async function fetchPhotos() {
         if (!base) return
@@ -148,8 +155,10 @@ export default function WeddingPhotoWall(props: Props) {
                 : []
             const ordered = newestFirst ? list : [...list].reverse()
             setPhotos(ordered)
+            return ordered
         } catch (e: any) {
             setError(e?.message || "Failed to load photos")
+            return []
         } finally {
             setLoading(false)
         }
@@ -202,67 +211,95 @@ export default function WeddingPhotoWall(props: Props) {
         const maxBytes = clamp(maxFileMB, 1, 50) * 1024 * 1024
 
         const validated: File[] = []
-        const statusInit: { name: string; status: any; message?: string }[] = []
+        const validationErrors: string[] = []
 
         for (const f of picked) {
             if (!isAllowedImageType(f.type)) {
-                statusInit.push({
-                    name: f.name,
-                    status: "error",
-                    message: "Tipo non supportato",
-                })
+                validationErrors.push(`${f.name}: tipo non supportato`)
                 continue
             }
             if (f.size > maxBytes) {
-                statusInit.push({
-                    name: f.name,
-                    status: "error",
-                    message: `Troppo grande (${formatBytes(f.size)})`,
-                })
+                validationErrors.push(
+                    `${f.name}: troppo grande (${formatBytes(f.size)})`
+                )
                 continue
             }
             validated.push(f)
-            statusInit.push({ name: f.name, status: "queued" })
         }
 
-        setUploadStatus(statusInit)
+        if (validationErrors.length > 0) {
+            setError(validationErrors.join(" · "))
+        }
         if (validated.length === 0) return
 
         setUploading(true)
-        setError(null)
+        if (validationErrors.length === 0) {
+            setError(null)
+        }
+
+        const uploadedKeys = new Set<string>()
+        const uploadedUrls = new Set<string>()
 
         try {
             for (const f of validated) {
-                setUploadStatus((prev) =>
-                    prev.map((s) =>
-                        s.name === f.name ? { ...s, status: "uploading" } : s
-                    )
-                )
-
-                await uploadViaWorker(f)
-
-                setUploadStatus((prev) =>
-                    prev.map((s) =>
-                        s.name === f.name ? { ...s, status: "done" } : s
-                    )
-                )
+                const uploadResult = await uploadViaWorker(f)
+                if (typeof uploadResult?.key === "string") {
+                    uploadedKeys.add(uploadResult.key)
+                }
+                if (typeof uploadResult?.url === "string") {
+                    uploadedUrls.add(uploadResult.url)
+                }
             }
 
-            await fetchPhotos()
+            const refreshedPhotos = (await fetchPhotos()) || []
+
+            const uploadedMatches = refreshedPhotos
+                .filter((photo) => {
+                    return (
+                        uploadedKeys.has(photo.key) || uploadedUrls.has(photo.url)
+                    )
+                })
+                .map((photo) => photo.key)
+
+            const fallbackCount = validated.length
+            const fallbackMatches = refreshedPhotos
+                .slice(
+                    newestFirst
+                        ? 0
+                        : Math.max(0, refreshedPhotos.length - fallbackCount),
+                    newestFirst ? fallbackCount : refreshedPhotos.length
+                )
+                .map((photo) => photo.key)
+
+            const keysToHighlight =
+                uploadedMatches.length > 0 ? uploadedMatches : fallbackMatches
+
+            if (keysToHighlight.length > 0) {
+                setSuccessOverlayKeys(new Set(keysToHighlight))
+
+                if (successOverlayTimeoutRef.current) {
+                    window.clearTimeout(successOverlayTimeoutRef.current)
+                }
+                successOverlayTimeoutRef.current = window.setTimeout(() => {
+                    setSuccessOverlayKeys(new Set())
+                    successOverlayTimeoutRef.current = null
+                }, clamp(successOverlayDurationMs, 500, 8000))
+            }
         } catch (e: any) {
             setError(e?.message || "Upload failed")
-            setUploadStatus((prev) =>
-                prev.map((s) =>
-                    s.status === "uploading"
-                        ? { ...s, status: "error", message: "Errore upload" }
-                        : s
-                )
-            )
         } finally {
             setUploading(false)
             if (inputRef.current) inputRef.current.value = ""
         }
     }
+
+    React.useEffect(() => {
+        return () => {
+            if (successOverlayTimeoutRef.current) {
+                window.clearTimeout(successOverlayTimeoutRef.current)
+            }
+        }
+    }, [])
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -312,23 +349,6 @@ export default function WeddingPhotoWall(props: Props) {
             {error ? (
                 <div style={styles.error}>
                     {errorLabel}: {error}
-                </div>
-            ) : null}
-
-            {uploadStatus.length > 0 ? (
-                <div style={styles.uploadList}>
-                    {uploadStatus.map((s) => (
-                        <div key={s.name} style={styles.uploadRow}>
-                            <div style={styles.uploadName}>{s.name}</div>
-                            <div style={styles.uploadState}>
-                                {s.status === "queued" && "In coda"}
-                                {s.status === "uploading" && "Caricamento…"}
-                                {s.status === "done" && "Fatto ✅"}
-                                {s.status === "error" &&
-                                    (s.message || "Errore")}
-                            </div>
-                        </div>
-                    ))}
                 </div>
             ) : null}
 
@@ -382,6 +402,21 @@ export default function WeddingPhotoWall(props: Props) {
                                 borderRadius: cornerRadius,
                             }}
                         />
+
+                        {successOverlayKeys.has(p.key) ? (
+                            <div
+                                style={{
+                                    ...styles.successOverlay,
+                                    background: successOverlayColor,
+                                }}
+                            >
+                                <Check
+                                    size={clamp(successCheckIconSize, 12, 140)}
+                                    color={successCheckIconColor}
+                                    strokeWidth={2.6}
+                                />
+                            </div>
+                        ) : null}
                     </button>
                 ))}
             </div>
@@ -457,6 +492,10 @@ WeddingPhotoWall.defaultProps = {
     maxFilesPerBatch: 20,
     maxFileMB: 15,
     newestFirst: true,
+    successOverlayDurationMs: 2000,
+    successOverlayColor: "rgba(187, 247, 208, 0.58)",
+    successCheckIconSize: 64,
+    successCheckIconColor: "rgba(21, 128, 61, 0.95)",
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -502,29 +541,6 @@ const styles: Record<string, React.CSSProperties> = {
         fontSize: 13,
         lineHeight: 1.4,
     },
-    uploadList: {
-        border: "1px solid rgba(0,0,0,0.10)",
-        borderRadius: 12,
-        padding: 10,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-    },
-    uploadRow: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        fontSize: 12,
-    },
-    uploadName: {
-        opacity: 0.85,
-        overflow: "hidden",
-        textOverflow: "ellipsis",
-        whiteSpace: "nowrap",
-        flex: "1 1 auto",
-    },
-    uploadState: { flex: "0 0 auto", opacity: 0.75 },
     grid: { width: "100%", display: "grid" },
     uploadCard: {
         appearance: "none",
@@ -562,6 +578,13 @@ const styles: Record<string, React.CSSProperties> = {
         height: "100%",
         objectFit: "cover",
         display: "block",
+    },
+    successOverlay: {
+        position: "absolute",
+        inset: 0,
+        display: "grid",
+        placeItems: "center",
+        pointerEvents: "none",
     },
     lightboxOverlay: {
         position: "fixed",
@@ -775,5 +798,31 @@ addPropertyControls(WeddingPhotoWall, {
         type: ControlType.Boolean,
         title: "Newest first",
         defaultValue: true,
+    },
+    successOverlayDurationMs: {
+        type: ControlType.Number,
+        title: "Success · Durata ms",
+        defaultValue: 2000,
+        min: 500,
+        max: 8000,
+        step: 100,
+    },
+    successOverlayColor: {
+        type: ControlType.Color,
+        title: "Success · Overlay",
+        defaultValue: "rgba(187, 247, 208, 0.58)",
+    },
+    successCheckIconSize: {
+        type: ControlType.Number,
+        title: "Success · Check size",
+        defaultValue: 64,
+        min: 12,
+        max: 140,
+        step: 1,
+    },
+    successCheckIconColor: {
+        type: ControlType.Color,
+        title: "Success · Check color",
+        defaultValue: "rgba(21, 128, 61, 0.95)",
     },
 })
