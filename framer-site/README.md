@@ -26,3 +26,4 @@ Questa cartella contiene i code component da importare in Framer.
 9. Overlay foto totalmente rinnovato con UX moderna: frecce laterali, navigazione da tastiera (← → Esc) e swipe su touch.
 10. L'immagine in overlay è mostrata senza riquadri quadrati fissi, in modalità `object-fit: contain` per rispettare il formato originale.
 11. Il feedback di successo è esportato come property controls (`successOverlayDurationMs`, `successOverlayColor`, `successCheckIconSize`, `successCheckIconColor`).
+12. Le foto della galleria vengono caricate in lazy loading progressivo: all'inizio viene renderizzato un primo blocco, poi gli altri elementi si aggiungono automaticamente durante lo scroll.

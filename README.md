@@ -17,6 +17,7 @@ Contiene i componenti custom da usare nel progetto Framer.
   - UI aggiornata: upload dalla prima card della griglia + refresh a icona, con props Framer per icone, testi, font e stile bordo/sfondo della card upload.
   - Overlay gallery completamente ridisegnato: navigazione foto con frecce, tastiera (← → Esc) e swipe touch.
   - Il lightbox mostra ora l'immagine senza riquadro quadrato forzato, con visualizzazione fluida in full viewport.
+  - Lazy loading progressivo della galleria: rendering iniziale a blocchi e caricamento automatico di altre foto durante lo scroll.
 - `framer-site/README.md`
 
 ### Come usarlo

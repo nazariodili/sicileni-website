@@ -87,6 +87,8 @@ function getRefreshIcon(name: RefreshIconName) {
 }
 
 export default function WeddingPhotoWall(props: Props) {
+    const PHOTOS_PAGE_SIZE = 18
+
     const {
         workerBaseUrl,
         eventCode,
@@ -144,6 +146,9 @@ export default function WeddingPhotoWall(props: Props) {
     const inputRef = React.useRef<HTMLInputElement | null>(null)
     const successOverlayTimeoutRef = React.useRef<number | null>(null)
     const touchStartXRef = React.useRef<number | null>(null)
+    const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
+
+    const [visibleCount, setVisibleCount] = React.useState(PHOTOS_PAGE_SIZE)
 
     const hasLightbox =
         activeIndex !== null && activeIndex >= 0 && activeIndex < photos.length
@@ -334,6 +339,39 @@ export default function WeddingPhotoWall(props: Props) {
         }
     }, [])
 
+    React.useEffect(() => {
+        setVisibleCount(PHOTOS_PAGE_SIZE)
+    }, [photos.length])
+
+    React.useEffect(() => {
+        const sentinel = loadMoreRef.current
+        if (!sentinel) return
+        if (visibleCount >= photos.length) return
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0]
+                if (!first?.isIntersecting) return
+                setVisibleCount((prev) =>
+                    Math.min(prev + PHOTOS_PAGE_SIZE, photos.length)
+                )
+            },
+            {
+                root: null,
+                rootMargin: "240px",
+                threshold: 0,
+            }
+        )
+
+        observer.observe(sentinel)
+        return () => observer.disconnect()
+    }, [photos.length, visibleCount])
+
+    const visiblePhotos = React.useMemo(
+        () => photos.slice(0, visibleCount),
+        [photos, visibleCount]
+    )
+
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -417,7 +455,7 @@ export default function WeddingPhotoWall(props: Props) {
                     ) : null}
                 </button>
 
-                {photos.map((p, index) => (
+                {visiblePhotos.map((p, index) => (
                     <button
                         key={p.key}
                         style={{
@@ -452,6 +490,17 @@ export default function WeddingPhotoWall(props: Props) {
                         ) : null}
                     </button>
                 ))}
+
+                {visibleCount < photos.length ? (
+                    <div
+                        ref={loadMoreRef}
+                        style={{
+                            ...styles.loadMoreTrigger,
+                            gridColumn: "1 / -1",
+                        }}
+                        aria-hidden="true"
+                    />
+                ) : null}
             </div>
 
             <style>{`
@@ -614,6 +663,11 @@ const styles: Record<string, React.CSSProperties> = {
         lineHeight: 1.4,
     },
     grid: { width: "100%", display: "grid" },
+    loadMoreTrigger: {
+        width: "100%",
+        height: 1,
+        pointerEvents: "none",
+    },
     uploadCard: {
         appearance: "none",
         border: "2px dashed rgba(148, 92, 106, 0.24)",
