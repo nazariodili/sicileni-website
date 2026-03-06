@@ -1,0 +1,10 @@
+name = "wedding-photos-worker"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "sicileni-wedding-photos"
+
+[vars]
+# EVENT_CODE va configurato come secret con: wrangler secret put EVENT_CODE
