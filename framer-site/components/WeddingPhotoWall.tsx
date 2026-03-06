@@ -1,13 +1,12 @@
 import * as React from "react"
 import { addPropertyControls, ControlType } from "framer"
+import { PlusSquare, RefreshCw } from "lucide-react"
 
 type PhotoItem = { key: string; url: string }
 
 type Props = {
     workerBaseUrl: string
     eventCode: string
-    title: string
-    subtitle: string
 
     uploadButtonLabel: string
     refreshingLabel: string
@@ -47,8 +46,6 @@ export default function WeddingPhotoWall(props: Props) {
     const {
         workerBaseUrl,
         eventCode,
-        title,
-        subtitle,
         uploadButtonLabel,
         refreshingLabel,
         emptyLabel,
@@ -221,25 +218,7 @@ export default function WeddingPhotoWall(props: Props) {
     return (
         <div style={styles.wrap}>
             <div style={styles.header}>
-                <div style={styles.headerText}>
-                    <div style={styles.title}>{title}</div>
-                    {subtitle ? (
-                        <div style={styles.subtitle}>{subtitle}</div>
-                    ) : null}
-                </div>
-
                 <div style={styles.actions}>
-                    <button
-                        style={{
-                            ...styles.button,
-                            opacity: uploading ? 0.6 : 1,
-                            pointerEvents: uploading ? "none" : "auto",
-                        }}
-                        onClick={handlePickFiles}
-                    >
-                        {uploadButtonLabel}
-                    </button>
-
                     <button
                         style={{
                             ...styles.secondaryButton,
@@ -247,8 +226,20 @@ export default function WeddingPhotoWall(props: Props) {
                             pointerEvents: loading ? "none" : "auto",
                         }}
                         onClick={fetchPhotos}
+                        aria-label={loading ? refreshingLabel : "Aggiorna foto"}
                     >
-                        {loading ? refreshingLabel : "Aggiorna"}
+                        <RefreshCw
+                            size={18}
+                            strokeWidth={2.2}
+                            style={{
+                                ...(loading
+                                    ? {
+                                          animation:
+                                              "weddingPhotoWallSpin 1s linear infinite",
+                                      }
+                                    : null),
+                            }}
+                        />
                     </button>
                 </div>
 
@@ -285,38 +276,57 @@ export default function WeddingPhotoWall(props: Props) {
                 </div>
             ) : null}
 
-            {photos.length === 0 && !loading ? (
-                <div style={styles.empty}>{emptyLabel}</div>
-            ) : (
-                <div
+            <div
+                style={{
+                    ...styles.grid,
+                    gridTemplateColumns,
+                    gap,
+                }}
+            >
+                <button
                     style={{
-                        ...styles.grid,
-                        gridTemplateColumns,
-                        gap,
+                        ...styles.uploadCard,
+                        borderRadius: cornerRadius,
+                        opacity: uploading ? 0.7 : 1,
+                        pointerEvents: uploading ? "none" : "auto",
                     }}
+                    onClick={handlePickFiles}
                 >
-                    {photos.map((p) => (
-                        <button
-                            key={p.key}
+                    <PlusSquare size={44} strokeWidth={1.8} />
+                    <span style={styles.uploadCardLabel}>{uploadButtonLabel}</span>
+                    {photos.length === 0 && !loading ? (
+                        <span style={styles.uploadCardHint}>{emptyLabel}</span>
+                    ) : null}
+                </button>
+
+                {photos.map((p) => (
+                    <button
+                        key={p.key}
+                        style={{
+                            ...styles.card,
+                            borderRadius: cornerRadius,
+                        }}
+                        onClick={() => setLightboxUrl(p.url)}
+                    >
+                        <img
+                            src={p.url}
+                            alt=""
+                            loading="lazy"
                             style={{
-                                ...styles.card,
+                                ...styles.img,
                                 borderRadius: cornerRadius,
                             }}
-                            onClick={() => setLightboxUrl(p.url)}
-                        >
-                            <img
-                                src={p.url}
-                                alt=""
-                                loading="lazy"
-                                style={{
-                                    ...styles.img,
-                                    borderRadius: cornerRadius,
-                                }}
-                            />
-                        </button>
-                    ))}
-                </div>
-            )}
+                        />
+                    </button>
+                ))}
+            </div>
+
+            <style>{`
+                @keyframes weddingPhotoWallSpin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
 
             {lightboxUrl ? (
                 <div
@@ -358,20 +368,11 @@ const styles: Record<string, React.CSSProperties> = {
     },
     header: {
         display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "space-between",
+        alignItems: "center",
+        justifyContent: "flex-end",
         gap: 12,
         flexWrap: "wrap",
     },
-    headerText: {
-        display: "flex",
-        flexDirection: "column",
-        gap: 6,
-        minWidth: 220,
-        flex: "1 1 auto",
-    },
-    title: { fontSize: 18, fontWeight: 700, lineHeight: 1.2 },
-    subtitle: { fontSize: 13, opacity: 0.75, lineHeight: 1.35 },
     actions: {
         display: "flex",
         gap: 10,
@@ -379,24 +380,15 @@ const styles: Record<string, React.CSSProperties> = {
         justifyContent: "flex-end",
         flex: "0 0 auto",
     },
-    button: {
-        appearance: "none",
-        border: "none",
-        padding: "10px 12px",
-        borderRadius: 10,
-        cursor: "pointer",
-        fontSize: 13,
-        fontWeight: 600,
-    },
     secondaryButton: {
         appearance: "none",
         border: "1px solid rgba(0,0,0,0.12)",
         background: "transparent",
-        padding: "10px 12px",
+        padding: "9px",
         borderRadius: 10,
         cursor: "pointer",
-        fontSize: 13,
-        fontWeight: 600,
+        display: "grid",
+        placeItems: "center",
     },
     error: {
         padding: "10px 12px",
@@ -429,14 +421,34 @@ const styles: Record<string, React.CSSProperties> = {
         flex: "1 1 auto",
     },
     uploadState: { flex: "0 0 auto", opacity: 0.75 },
-    empty: {
-        padding: "16px 12px",
-        borderRadius: 12,
-        border: "1px dashed rgba(0,0,0,0.18)",
+    grid: { width: "100%", display: "grid" },
+    uploadCard: {
+        appearance: "none",
+        border: "2px dashed rgba(148, 92, 106, 0.24)",
+        background: "rgba(247, 231, 231, 0.85)",
+        color: "rgba(111, 61, 74, 0.95)",
+        cursor: "pointer",
+        aspectRatio: "1 / 1",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 14,
+        padding: "24px 20px",
+        textAlign: "center",
+    },
+    uploadCardLabel: {
+        fontSize: 28,
+        fontWeight: 600,
+        lineHeight: 1.05,
+        letterSpacing: "0.02em",
+        textTransform: "uppercase",
+    },
+    uploadCardHint: {
         fontSize: 13,
         opacity: 0.8,
+        lineHeight: 1.4,
     },
-    grid: { width: "100%", display: "grid" },
     card: {
         appearance: "none",
         border: "1px solid rgba(0,0,0,0.10)",
@@ -502,20 +514,10 @@ addPropertyControls(WeddingPhotoWall, {
         title: "Event Code",
         defaultValue: "",
     },
-    title: {
-        type: ControlType.String,
-        title: "Title",
-        defaultValue: "📸 Wedding Photos",
-    },
-    subtitle: {
-        type: ControlType.String,
-        title: "Subtitle",
-        defaultValue: "Carica le tue foto e guarda quelle di tutti.",
-    },
     uploadButtonLabel: {
         type: ControlType.String,
-        title: "Upload Label",
-        defaultValue: "Carica foto",
+        title: "Add Label",
+        defaultValue: "Add a photo",
     },
     refreshingLabel: {
         type: ControlType.String,
