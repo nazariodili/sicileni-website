@@ -15,6 +15,7 @@ Contiene i componenti custom da usare nel progetto Framer.
 - `framer-site/components/RSVP_Google_Sheets.tsx`
 - `framer-site/components/WeddingPhotoWall.tsx`
   - UI aggiornata: action bar sempre sticky bottom con props Framer dedicate (Fill, Padding, Radius, Border, Shadows, Z Index) per styling e UX.
+  - Fix controllo `Shadows`: ora il valore BoxShadow proveniente dalle property controls Framer viene normalizzato correttamente anche quando arriva come oggetto/lista, quindi lo shadow della sticky action bar si applica sempre.
   - Overlay gallery completamente ridisegnato: navigazione foto con frecce, tastiera (← → Esc) e swipe touch.
   - Il lightbox mostra ora l'immagine senza riquadro quadrato forzato, con visualizzazione fluida in full viewport.
   - Lazy loading progressivo della galleria: rendering iniziale a blocchi e caricamento automatico di altre foto durante lo scroll.

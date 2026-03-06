@@ -16,6 +16,25 @@ type PhotoItem = { key: string; url: string }
 type UploadIconName = "plus-square" | "image-plus" | "upload"
 type RefreshIconName = "refresh-cw" | "rotate-ccw"
 
+type BoxShadowValue =
+    | string
+    | {
+          inset?: boolean
+          x?: number
+          y?: number
+          blur?: number
+          spread?: number
+          color?: string
+      }
+    | Array<{
+          inset?: boolean
+          x?: number
+          y?: number
+          blur?: number
+          spread?: number
+          color?: string
+      }>
+
 type Props = {
     workerBaseUrl: string
     eventCode: string
@@ -44,7 +63,7 @@ type Props = {
 
     actionBarFill: string
     actionBarBorder: React.CSSProperties
-    actionBarShadow: string
+    actionBarShadow: BoxShadowValue
     actionBarRadius: string
     actionBarPadding: string
     actionBarGap: number
@@ -94,6 +113,27 @@ function getUploadIcon(name: UploadIconName) {
 function getRefreshIcon(name: RefreshIconName) {
     if (name === "rotate-ccw") return RotateCcw
     return RefreshCw
+}
+
+function toShadowCss(shadow: BoxShadowValue) {
+    if (typeof shadow === "string") return shadow
+
+    const list = Array.isArray(shadow) ? shadow : shadow ? [shadow] : []
+    if (list.length === 0) return "none"
+
+    const normalized = list
+        .map((item) => {
+            const x = Number(item?.x) || 0
+            const y = Number(item?.y) || 0
+            const blur = Number(item?.blur) || 0
+            const spread = Number(item?.spread) || 0
+            const color = item?.color || "rgba(0,0,0,0)"
+            const inset = item?.inset ? "inset " : ""
+            return `${inset}${x}px ${y}px ${blur}px ${spread}px ${color}`
+        })
+        .filter(Boolean)
+
+    return normalized.length > 0 ? normalized.join(", ") : "none"
 }
 
 export default function WeddingPhotoWall(props: Props) {
@@ -399,6 +439,10 @@ export default function WeddingPhotoWall(props: Props) {
     }, [columns])
 
     const stickyBarSpacer = clamp(actionBarBottom, 0, 140) + 112
+    const actionBarShadowCss = React.useMemo(
+        () => toShadowCss(actionBarShadow),
+        [actionBarShadow]
+    )
 
     return (
         <div
@@ -517,7 +561,7 @@ export default function WeddingPhotoWall(props: Props) {
                         background: actionBarFill,
                         ...actionBarBorder,
                         borderRadius: actionBarRadius,
-                        boxShadow: actionBarShadow,
+                        boxShadow: actionBarShadowCss,
                         padding: actionBarPadding,
                         gap: clamp(actionBarGap, 4, 28),
                     }}

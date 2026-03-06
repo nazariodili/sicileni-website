@@ -5,6 +5,7 @@ Questa cartella contiene i code component da importare in Framer.
 ## Struttura
 - `components/RSVP_Google_Sheets.tsx`: componente RSVP per Framer.
 - `components/WeddingPhotoWall.tsx`: wall fotografico con upload + gallery da Cloudflare Worker e action bar sticky bottom.
+  - Include fix del controllo `Shadows`: supporta correttamente il formato BoxShadow emesso da Framer (stringa, oggetto singolo o lista).
 
 ## Uso
 1. Apri il progetto Framer.
