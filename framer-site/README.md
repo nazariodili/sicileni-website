@@ -23,4 +23,6 @@ Questa cartella contiene i code component da importare in Framer.
 6. Il wall mostra sempre una prima cella di upload dentro la griglia (stile bordo/sfondo configurabile) e il refresh in header usa una icona Lucide configurabile.
 7. In Framer puoi personalizzare direttamente props di icone, testi, stile testo e stile bordo/sfondo della prima cella upload.
 8. Dopo upload riuscito non viene più mostrato il toast/lista testuale: le foto appena caricate vengono evidenziate con overlay verde + check per 2 secondi.
-9. Il feedback di successo è esportato come property controls (`successOverlayDurationMs`, `successOverlayColor`, `successCheckIconSize`, `successCheckIconColor`).
+9. Overlay foto totalmente rinnovato con UX moderna: frecce laterali, navigazione da tastiera (← → Esc) e swipe su touch.
+10. L'immagine in overlay è mostrata senza riquadri quadrati fissi, in modalità `object-fit: contain` per rispettare il formato originale.
+11. Il feedback di successo è esportato come property controls (`successOverlayDurationMs`, `successOverlayColor`, `successCheckIconSize`, `successCheckIconColor`).

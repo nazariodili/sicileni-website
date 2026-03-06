@@ -2,11 +2,14 @@ import * as React from "react"
 import { addPropertyControls, ControlType } from "framer"
 import {
     Check,
+    ChevronLeft,
+    ChevronRight,
     ImagePlus,
     PlusSquare,
     RefreshCw,
     RotateCcw,
     Upload,
+    X,
 } from "lucide-react"
 
 type PhotoItem = { key: string; url: string }
@@ -132,14 +135,38 @@ export default function WeddingPhotoWall(props: Props) {
     const [uploading, setUploading] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
 
-    const [lightboxUrl, setLightboxUrl] = React.useState<string | null>(null)
+    const [activeIndex, setActiveIndex] = React.useState<number | null>(null)
 
-    const [successOverlayKeys, setSuccessOverlayKeys] = React.useState<
-        Set<string>
-    >(new Set())
+    const [successOverlayKeys, setSuccessOverlayKeys] = React.useState<Set<string>>(
+        new Set()
+    )
 
     const inputRef = React.useRef<HTMLInputElement | null>(null)
     const successOverlayTimeoutRef = React.useRef<number | null>(null)
+    const touchStartXRef = React.useRef<number | null>(null)
+
+    const hasLightbox =
+        activeIndex !== null && activeIndex >= 0 && activeIndex < photos.length
+    const currentPhoto = hasLightbox ? photos[activeIndex] : null
+
+    const goToIndex = React.useCallback(
+        (next: number) => {
+            if (photos.length === 0) return
+            const wrapped = (next + photos.length) % photos.length
+            setActiveIndex(wrapped)
+        },
+        [photos.length]
+    )
+
+    const goToPrev = React.useCallback(() => {
+        if (activeIndex === null) return
+        goToIndex(activeIndex - 1)
+    }, [activeIndex, goToIndex])
+
+    const goToNext = React.useCallback(() => {
+        if (activeIndex === null) return
+        goToIndex(activeIndex + 1)
+    }, [activeIndex, goToIndex])
 
     async function fetchPhotos() {
         if (!base) return
@@ -147,14 +174,17 @@ export default function WeddingPhotoWall(props: Props) {
         setError(null)
         try {
             const res = await fetch(`${base}/api/photos`, { method: "GET" })
-            if (!res.ok)
-                throw new Error(`GET /api/photos failed (${res.status})`)
+            if (!res.ok) throw new Error(`GET /api/photos failed (${res.status})`)
+
             const data = await res.json()
-            const list: PhotoItem[] = Array.isArray(data?.photos)
-                ? data.photos
-                : []
+            const list: PhotoItem[] = Array.isArray(data?.photos) ? data.photos : []
             const ordered = newestFirst ? list : [...list].reverse()
             setPhotos(ordered)
+            setActiveIndex((prev) => {
+                if (prev === null) return prev
+                if (ordered.length === 0) return null
+                return Math.min(prev, ordered.length - 1)
+            })
             return ordered
         } catch (e: any) {
             setError(e?.message || "Failed to load photos")
@@ -203,11 +233,7 @@ export default function WeddingPhotoWall(props: Props) {
             return
         }
 
-        const picked = Array.from(files).slice(
-            0,
-            clamp(maxFilesPerBatch, 1, 100)
-        )
-
+        const picked = Array.from(files).slice(0, clamp(maxFilesPerBatch, 1, 100))
         const maxBytes = clamp(maxFileMB, 1, 50) * 1024 * 1024
 
         const validated: File[] = []
@@ -219,9 +245,7 @@ export default function WeddingPhotoWall(props: Props) {
                 continue
             }
             if (f.size > maxBytes) {
-                validationErrors.push(
-                    `${f.name}: troppo grande (${formatBytes(f.size)})`
-                )
+                validationErrors.push(`${f.name}: troppo grande (${formatBytes(f.size)})`)
                 continue
             }
             validated.push(f)
@@ -233,9 +257,7 @@ export default function WeddingPhotoWall(props: Props) {
         if (validated.length === 0) return
 
         setUploading(true)
-        if (validationErrors.length === 0) {
-            setError(null)
-        }
+        if (validationErrors.length === 0) setError(null)
 
         const uploadedKeys = new Set<string>()
         const uploadedUrls = new Set<string>()
@@ -243,30 +265,20 @@ export default function WeddingPhotoWall(props: Props) {
         try {
             for (const f of validated) {
                 const uploadResult = await uploadViaWorker(f)
-                if (typeof uploadResult?.key === "string") {
-                    uploadedKeys.add(uploadResult.key)
-                }
-                if (typeof uploadResult?.url === "string") {
-                    uploadedUrls.add(uploadResult.url)
-                }
+                if (typeof uploadResult?.key === "string") uploadedKeys.add(uploadResult.key)
+                if (typeof uploadResult?.url === "string") uploadedUrls.add(uploadResult.url)
             }
 
             const refreshedPhotos = (await fetchPhotos()) || []
 
             const uploadedMatches = refreshedPhotos
-                .filter((photo) => {
-                    return (
-                        uploadedKeys.has(photo.key) || uploadedUrls.has(photo.url)
-                    )
-                })
+                .filter((photo) => uploadedKeys.has(photo.key) || uploadedUrls.has(photo.url))
                 .map((photo) => photo.key)
 
             const fallbackCount = validated.length
             const fallbackMatches = refreshedPhotos
                 .slice(
-                    newestFirst
-                        ? 0
-                        : Math.max(0, refreshedPhotos.length - fallbackCount),
+                    newestFirst ? 0 : Math.max(0, refreshedPhotos.length - fallbackCount),
                     newestFirst ? fallbackCount : refreshedPhotos.length
                 )
                 .map((photo) => photo.key)
@@ -294,12 +306,34 @@ export default function WeddingPhotoWall(props: Props) {
     }
 
     React.useEffect(() => {
+        if (!hasLightbox) return
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setActiveIndex(null)
+            } else if (event.key === "ArrowLeft") {
+                event.preventDefault()
+                goToPrev()
+            } else if (event.key === "ArrowRight") {
+                event.preventDefault()
+                goToNext()
+            }
+        }
+
+        document.addEventListener("keydown", onKeyDown)
+        return () => {
+            document.removeEventListener("keydown", onKeyDown)
+        }
+    }, [goToNext, goToPrev, hasLightbox])
+
+    React.useEffect(() => {
         return () => {
             if (successOverlayTimeoutRef.current) {
                 window.clearTimeout(successOverlayTimeoutRef.current)
             }
         }
     }, [])
+
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -324,14 +358,13 @@ export default function WeddingPhotoWall(props: Props) {
                         <RefreshIcon
                             size={clamp(refreshIconSize, 12, 64)}
                             strokeWidth={2.2}
-                            style={{
-                                ...(loading
+                            style={
+                                loading
                                     ? {
-                                          animation:
-                                              "weddingPhotoWallSpin 1s linear infinite",
+                                          animation: "weddingPhotoWallSpin 1s linear infinite",
                                       }
-                                    : null),
-                            }}
+                                    : undefined
+                            }
                         />
                     </button>
                 </div>
@@ -384,14 +417,14 @@ export default function WeddingPhotoWall(props: Props) {
                     ) : null}
                 </button>
 
-                {photos.map((p) => (
+                {photos.map((p, index) => (
                     <button
                         key={p.key}
                         style={{
                             ...styles.card,
                             borderRadius: cornerRadius,
                         }}
-                        onClick={() => setLightboxUrl(p.url)}
+                        onClick={() => setActiveIndex(index)}
                     >
                         <img
                             src={p.url}
@@ -426,28 +459,67 @@ export default function WeddingPhotoWall(props: Props) {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
+
+                @keyframes weddingLightboxFadeIn {
+                    from { opacity: 0; transform: translateY(14px) scale(0.985); }
+                    to { opacity: 1; transform: translateY(0) scale(1); }
+                }
             `}</style>
 
-            {lightboxUrl ? (
-                <div
-                    style={styles.lightboxOverlay}
-                    onClick={() => setLightboxUrl(null)}
-                >
+            {hasLightbox && currentPhoto ? (
+                <div style={styles.lightboxOverlay} onClick={() => setActiveIndex(null)}>
                     <div
                         style={styles.lightboxInner}
                         onClick={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => {
+                            touchStartXRef.current = e.touches[0]?.clientX ?? null
+                        }}
+                        onTouchEnd={(e) => {
+                            const start = touchStartXRef.current
+                            const end = e.changedTouches[0]?.clientX
+                            touchStartXRef.current = null
+                            if (start === null || typeof end !== "number") return
+                            const delta = end - start
+                            if (Math.abs(delta) < 44) return
+                            if (delta > 0) goToPrev()
+                            if (delta < 0) goToNext()
+                        }}
                     >
-                        <img
-                            src={lightboxUrl}
-                            alt=""
-                            style={styles.lightboxImg}
-                        />
                         <button
-                            style={styles.lightboxClose}
-                            onClick={() => setLightboxUrl(null)}
+                            style={{ ...styles.lightboxIconButton, ...styles.lightboxCloseButton }}
+                            onClick={() => setActiveIndex(null)}
+                            aria-label="Chiudi galleria"
+                            title="Chiudi"
                         >
-                            Chiudi
+                            <X size={20} />
                         </button>
+
+                        <button
+                            style={{ ...styles.lightboxNavButton, ...styles.lightboxNavLeft }}
+                            onClick={goToPrev}
+                            aria-label="Foto precedente"
+                            title="Precedente"
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+
+                        <figure style={styles.lightboxFigure}>
+                            <img src={currentPhoto.url} alt="" style={styles.lightboxImg} />
+                            <figcaption style={styles.lightboxMeta}>
+                                {activeIndex! + 1} / {photos.length}
+                            </figcaption>
+                        </figure>
+
+                        <button
+                            style={{ ...styles.lightboxNavButton, ...styles.lightboxNavRight }}
+                            onClick={goToNext}
+                            aria-label="Foto successiva"
+                            title="Successiva"
+                        >
+                            <ChevronRight size={24} />
+                        </button>
+
+
                     </div>
                 </div>
             ) : null}
@@ -556,13 +628,8 @@ const styles: Record<string, React.CSSProperties> = {
         padding: "24px 20px",
         textAlign: "center",
     },
-    uploadCardLabel: {
-        margin: 0,
-    },
-    uploadCardHint: {
-        margin: 0,
-        opacity: 0.85,
-    },
+    uploadCardLabel: { margin: 0 },
+    uploadCardHint: { margin: 0, opacity: 0.85 },
     card: {
         appearance: "none",
         border: "1px solid rgba(0,0,0,0.10)",
@@ -578,6 +645,7 @@ const styles: Record<string, React.CSSProperties> = {
         height: "100%",
         objectFit: "cover",
         display: "block",
+        transition: "transform 220ms ease",
     },
     successOverlay: {
         position: "absolute",
@@ -589,38 +657,85 @@ const styles: Record<string, React.CSSProperties> = {
     lightboxOverlay: {
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.70)",
+        background: "rgba(8,10,18,0.86)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
         zIndex: 999999,
+        backdropFilter: "blur(5px)",
     },
     lightboxInner: {
         position: "relative",
-        width: "min(920px, 96vw)",
-        maxHeight: "90vh",
+        width: "min(1240px, 96vw)",
+        maxHeight: "92vh",
         display: "flex",
         flexDirection: "column",
+        justifyContent: "center",
+        gap: 14,
+        animation: "weddingLightboxFadeIn 220ms ease",
+    },
+    lightboxFigure: {
+        margin: 0,
+        width: "100%",
+        height: "100%",
+        minHeight: "55vh",
+        maxHeight: "80vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
         gap: 10,
     },
     lightboxImg: {
         width: "100%",
-        maxHeight: "82vh",
+        height: "100%",
+        maxHeight: "74vh",
         objectFit: "contain",
-        borderRadius: 14,
-        background: "rgba(255,255,255,0.06)",
+        display: "block",
     },
-    lightboxClose: {
-        appearance: "none",
-        border: "none",
-        borderRadius: 10,
-        padding: "10px 12px",
-        cursor: "pointer",
+    lightboxMeta: {
+        margin: 0,
+        color: "rgba(255,255,255,0.8)",
         fontSize: 13,
-        fontWeight: 700,
-        alignSelf: "flex-end",
+        letterSpacing: "0.04em",
     },
+    lightboxIconButton: {
+        appearance: "none",
+        border: "1px solid rgba(255,255,255,0.18)",
+        color: "white",
+        background: "rgba(17, 24, 39, 0.52)",
+        width: 42,
+        height: 42,
+        borderRadius: 999,
+        cursor: "pointer",
+        display: "grid",
+        placeItems: "center",
+    },
+    lightboxCloseButton: {
+        position: "fixed",
+        top: 18,
+        right: 18,
+        zIndex: 1000001,
+    },
+    lightboxNavButton: {
+        position: "absolute",
+        top: "50%",
+        transform: "translateY(-50%)",
+        appearance: "none",
+        border: "1px solid rgba(255,255,255,0.2)",
+        color: "white",
+        background: "rgba(17, 24, 39, 0.54)",
+        width: 48,
+        height: 48,
+        borderRadius: 999,
+        cursor: "pointer",
+        display: "grid",
+        placeItems: "center",
+        zIndex: 2,
+    },
+    lightboxNavLeft: { left: 8 },
+    lightboxNavRight: { right: 8 },
 }
 
 addPropertyControls(WeddingPhotoWall, {
