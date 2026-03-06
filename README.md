@@ -13,13 +13,14 @@ Contiene i componenti custom da usare nel progetto Framer.
 
 ### Contenuto
 - `framer-site/components/RSVP_Google_Sheets.tsx`
+- `framer-site/components/WeddingPhotoWall.tsx`
 - `framer-site/README.md`
 
 ### Come usarlo
 1. Apri Framer e vai nei Code Components.
-2. Inserisci il contenuto del file `RSVP_Google_Sheets.tsx`.
+2. Inserisci il contenuto del file `RSVP_Google_Sheets.tsx` o `WeddingPhotoWall.tsx`.
 3. Imposta le property del componente.
-4. Configura l'`endpointUrl` verso il dominio del Worker Cloudflare.
+4. Configura l'endpoint del componente verso il dominio del Worker Cloudflare.
 
 ---
 
