@@ -1,4 +1,4 @@
-# framerRSVP
+# Sicileni Wedding
 
 Repository organizzato in **2 ambienti separati**:
 
