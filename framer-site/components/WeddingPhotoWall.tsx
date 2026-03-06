@@ -21,25 +21,12 @@ type Props = {
     eventCode: string
 
     uploadButtonLabel: string
-    uploadHintLabel: string
     refreshAriaLabel: string
     refreshingLabel: string
     errorLabel: string
 
     uploadIcon: UploadIconName
-    uploadIconSize: number
-    uploadIconColor: string
     refreshIcon: RefreshIconName
-    refreshIconSize: number
-    refreshIconColor: string
-
-    uploadLabelFont: React.CSSProperties
-    uploadHintFont: React.CSSProperties
-
-    uploadCardBackground: string
-    uploadCardBorderColor: string
-    uploadCardBorderWidth: number
-    uploadCardBorderStyle: "dashed" | "dotted" | "solid"
 
     columns: number
     gap: number
@@ -53,6 +40,19 @@ type Props = {
     successOverlayColor: string
     successCheckIconSize: number
     successCheckIconColor: string
+
+    actionBarFill: string
+    actionBarBorder: React.CSSProperties
+    actionBarShadow: string
+    actionBarRadius: string
+    actionBarPadding: string
+    actionBarGap: number
+    actionIconColor: string
+    actionIconSize: number
+    actionBarInsetX: number
+    actionBarBottom: number
+    actionBarZIndex: number
+    uploadActionAriaLabel: string
 }
 
 function clamp(n: number, min: number, max: number) {
@@ -91,22 +91,11 @@ export default function WeddingPhotoWall(props: Props) {
         workerBaseUrl,
         eventCode,
         uploadButtonLabel,
-        uploadHintLabel,
         refreshAriaLabel,
         refreshingLabel,
         errorLabel,
         uploadIcon,
-        uploadIconSize,
-        uploadIconColor,
         refreshIcon,
-        refreshIconSize,
-        refreshIconColor,
-        uploadLabelFont,
-        uploadHintFont,
-        uploadCardBackground,
-        uploadCardBorderColor,
-        uploadCardBorderWidth,
-        uploadCardBorderStyle,
         columns,
         gap,
         cornerRadius,
@@ -117,6 +106,18 @@ export default function WeddingPhotoWall(props: Props) {
         successOverlayColor,
         successCheckIconSize,
         successCheckIconColor,
+        actionBarFill,
+        actionBarBorder,
+        actionBarShadow,
+        actionBarRadius,
+        actionBarPadding,
+        actionBarGap,
+        actionIconColor,
+        actionIconSize,
+        actionBarInsetX,
+        actionBarBottom,
+        actionBarZIndex,
+        uploadActionAriaLabel,
     } = props
 
     const UploadIcon = React.useMemo(() => getUploadIcon(uploadIcon), [uploadIcon])
@@ -340,44 +341,23 @@ export default function WeddingPhotoWall(props: Props) {
         return `repeat(${c}, minmax(0, 1fr))`
     }, [columns])
 
-    return (
-        <div style={styles.wrap}>
-            <div style={styles.header}>
-                <div style={styles.actions}>
-                    <button
-                        style={{
-                            ...styles.secondaryButton,
-                            color: refreshIconColor,
-                            opacity: loading ? 0.6 : 1,
-                            pointerEvents: loading ? "none" : "auto",
-                        }}
-                        onClick={fetchPhotos}
-                        aria-label={loading ? refreshingLabel : refreshAriaLabel}
-                        title={loading ? refreshingLabel : refreshAriaLabel}
-                    >
-                        <RefreshIcon
-                            size={clamp(refreshIconSize, 12, 64)}
-                            strokeWidth={2.2}
-                            style={
-                                loading
-                                    ? {
-                                          animation: "weddingPhotoWallSpin 1s linear infinite",
-                                      }
-                                    : undefined
-                            }
-                        />
-                    </button>
-                </div>
+    const stickyBarSpacer = clamp(actionBarBottom, 0, 140) + 112
 
-                <input
-                    ref={inputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style={{ display: "none" }}
-                    onChange={(e) => handleFilesSelected(e.target.files)}
-                />
-            </div>
+    return (
+        <div
+            style={{
+                ...styles.wrap,
+                paddingBottom: stickyBarSpacer,
+            }}
+        >
+            <input
+                ref={inputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={(e) => handleFilesSelected(e.target.files)}
+            />
 
             {error ? (
                 <div style={styles.error}>
@@ -392,31 +372,6 @@ export default function WeddingPhotoWall(props: Props) {
                     gap,
                 }}
             >
-                <button
-                    style={{
-                        ...styles.uploadCard,
-                        borderRadius: cornerRadius,
-                        color: uploadIconColor,
-                        background: uploadCardBackground,
-                        borderColor: uploadCardBorderColor,
-                        borderWidth: clamp(uploadCardBorderWidth, 0, 12),
-                        borderStyle: uploadCardBorderStyle,
-                        opacity: uploading ? 0.7 : 1,
-                        pointerEvents: uploading ? "none" : "auto",
-                    }}
-                    onClick={handlePickFiles}
-                >
-                    <UploadIcon size={clamp(uploadIconSize, 14, 120)} strokeWidth={1.8} />
-                    <span style={{ ...styles.uploadCardLabel, ...uploadLabelFont }}>
-                        {uploadButtonLabel}
-                    </span>
-                    {uploadHintLabel ? (
-                        <span style={{ ...styles.uploadCardHint, ...uploadHintFont }}>
-                            {uploadHintLabel}
-                        </span>
-                    ) : null}
-                </button>
-
                 {photos.map((p, index) => (
                     <button
                         key={p.key}
@@ -452,6 +407,66 @@ export default function WeddingPhotoWall(props: Props) {
                         ) : null}
                     </button>
                 ))}
+            </div>
+
+            <div
+                style={{
+                    ...styles.stickyActionBarWrap,
+                    left: clamp(actionBarInsetX, 0, 64),
+                    right: clamp(actionBarInsetX, 0, 64),
+                    bottom: clamp(actionBarBottom, 0, 140),
+                    zIndex: clamp(actionBarZIndex, 0, 999999),
+                }}
+            >
+                <div
+                    style={{
+                        ...styles.stickyActionBar,
+                        background: actionBarFill,
+                        ...actionBarBorder,
+                        borderRadius: actionBarRadius,
+                        boxShadow: actionBarShadow,
+                        padding: actionBarPadding,
+                        gap: clamp(actionBarGap, 4, 28),
+                    }}
+                >
+                    <button
+                        style={{
+                            ...styles.stickyActionButton,
+                            color: actionIconColor,
+                            opacity: uploading ? 0.6 : 1,
+                            pointerEvents: uploading ? "none" : "auto",
+                        }}
+                        onClick={handlePickFiles}
+                        aria-label={uploadActionAriaLabel}
+                        title={uploadButtonLabel}
+                    >
+                        <UploadIcon size={clamp(actionIconSize, 14, 64)} strokeWidth={2.1} />
+                    </button>
+
+                    <button
+                        style={{
+                            ...styles.stickyActionButton,
+                            color: actionIconColor,
+                            opacity: loading ? 0.6 : 1,
+                            pointerEvents: loading ? "none" : "auto",
+                        }}
+                        onClick={fetchPhotos}
+                        aria-label={loading ? refreshingLabel : refreshAriaLabel}
+                        title={loading ? refreshingLabel : refreshAriaLabel}
+                    >
+                        <RefreshIcon
+                            size={clamp(actionIconSize, 14, 64)}
+                            strokeWidth={2.1}
+                            style={
+                                loading
+                                    ? {
+                                          animation: "weddingPhotoWallSpin 1s linear infinite",
+                                      }
+                                    : undefined
+                            }
+                        />
+                    </button>
+                </div>
             </div>
 
             <style>{`
@@ -531,33 +546,11 @@ WeddingPhotoWall.defaultProps = {
     workerBaseUrl: "",
     eventCode: "",
     uploadButtonLabel: "ADD A PHOTO",
-    uploadHintLabel: "",
     refreshAriaLabel: "Aggiorna foto",
     refreshingLabel: "Carico…",
     errorLabel: "Errore",
     uploadIcon: "plus-square",
-    uploadIconSize: 44,
-    uploadIconColor: "rgba(111, 61, 74, 0.95)",
     refreshIcon: "refresh-cw",
-    refreshIconSize: 18,
-    refreshIconColor: "rgba(0,0,0,0.8)",
-    uploadLabelFont: {
-        fontSize: 28,
-        fontWeight: 600,
-        lineHeight: "1.05em",
-        letterSpacing: "0.02em",
-        textTransform: "uppercase",
-    },
-    uploadHintFont: {
-        fontSize: 13,
-        fontWeight: 400,
-        lineHeight: "1.4em",
-        letterSpacing: "0em",
-    },
-    uploadCardBackground: "rgba(247, 231, 231, 0.85)",
-    uploadCardBorderColor: "rgba(148, 92, 106, 0.24)",
-    uploadCardBorderWidth: 2,
-    uploadCardBorderStyle: "dashed",
     columns: 3,
     gap: 10,
     cornerRadius: 14,
@@ -568,6 +561,22 @@ WeddingPhotoWall.defaultProps = {
     successOverlayColor: "rgba(187, 247, 208, 0.58)",
     successCheckIconSize: 64,
     successCheckIconColor: "rgba(21, 128, 61, 0.95)",
+    actionBarFill: "rgba(243, 244, 246, 0.96)",
+    actionBarBorder: {
+        borderWidth: 1,
+        borderStyle: "solid",
+        borderColor: "rgba(17, 24, 39, 0.08)",
+    },
+    actionBarShadow: "0 12px 32px rgba(15, 23, 42, 0.2)",
+    actionBarRadius: "999px",
+    actionBarPadding: "12px 20px",
+    actionBarGap: 18,
+    actionIconColor: "rgba(55, 65, 81, 0.95)",
+    actionIconSize: 30,
+    actionBarInsetX: 18,
+    actionBarBottom: 18,
+    actionBarZIndex: 1100,
+    uploadActionAriaLabel: "Carica foto",
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -581,30 +590,6 @@ const styles: Record<string, React.CSSProperties> = {
         fontFamily:
             'system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif',
     },
-    header: {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: 12,
-        flexWrap: "wrap",
-    },
-    actions: {
-        display: "flex",
-        gap: 10,
-        alignItems: "center",
-        justifyContent: "flex-end",
-        flex: "0 0 auto",
-    },
-    secondaryButton: {
-        appearance: "none",
-        border: "1px solid rgba(0,0,0,0.12)",
-        background: "transparent",
-        padding: "9px",
-        borderRadius: 10,
-        cursor: "pointer",
-        display: "grid",
-        placeItems: "center",
-    },
     error: {
         padding: "10px 12px",
         borderRadius: 10,
@@ -614,22 +599,6 @@ const styles: Record<string, React.CSSProperties> = {
         lineHeight: 1.4,
     },
     grid: { width: "100%", display: "grid" },
-    uploadCard: {
-        appearance: "none",
-        border: "2px dashed rgba(148, 92, 106, 0.24)",
-        background: "rgba(247, 231, 231, 0.85)",
-        cursor: "pointer",
-        aspectRatio: "1 / 1",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 14,
-        padding: "24px 20px",
-        textAlign: "center",
-    },
-    uploadCardLabel: { margin: 0 },
-    uploadCardHint: { margin: 0, opacity: 0.85 },
     card: {
         appearance: "none",
         border: "1px solid rgba(0,0,0,0.10)",
@@ -736,6 +705,32 @@ const styles: Record<string, React.CSSProperties> = {
     },
     lightboxNavLeft: { left: 8 },
     lightboxNavRight: { right: 8 },
+    stickyActionBarWrap: {
+        position: "fixed",
+        zIndex: 1100,
+        display: "flex",
+        justifyContent: "center",
+        pointerEvents: "none",
+    },
+    stickyActionBar: {
+        width: "fit-content",
+        maxWidth: "100%",
+        display: "inline-flex",
+        alignItems: "center",
+        borderStyle: "solid",
+        pointerEvents: "auto",
+    },
+    stickyActionButton: {
+        appearance: "none",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        display: "grid",
+        placeItems: "center",
+    },
 }
 
 addPropertyControls(WeddingPhotoWall, {
@@ -754,38 +749,6 @@ addPropertyControls(WeddingPhotoWall, {
         title: "Upload · Testo",
         defaultValue: "ADD A PHOTO",
     },
-    uploadHintLabel: {
-        type: ControlType.String,
-        title: "Upload · Sottotesto",
-        defaultValue: "",
-        displayTextArea: true,
-    },
-    uploadLabelFont: {
-        type: ControlType.Font,
-        title: "Upload · Font testo",
-        controls: "extended",
-        defaultFontType: "sans-serif",
-        defaultValue: {
-            fontSize: 28,
-            variant: "Semi Bold",
-            lineHeight: "1.05em",
-            letterSpacing: "0.02em",
-            textTransform: "uppercase",
-        },
-    },
-    uploadHintFont: {
-        type: ControlType.Font,
-        title: "Upload · Font sottotesto",
-        controls: "extended",
-        defaultFontType: "sans-serif",
-        defaultValue: {
-            fontSize: 13,
-            variant: "Regular",
-            lineHeight: "1.4em",
-            letterSpacing: "0em",
-        },
-    },
-
     uploadIcon: {
         type: ControlType.Enum,
         title: "Upload · Icona",
@@ -793,44 +756,10 @@ addPropertyControls(WeddingPhotoWall, {
         optionTitles: ["PlusSquare", "ImagePlus", "Upload"],
         defaultValue: "plus-square",
     },
-    uploadIconSize: {
-        type: ControlType.Number,
-        title: "Upload · Icon size",
-        defaultValue: 44,
-        min: 14,
-        max: 120,
-        step: 1,
-    },
-    uploadIconColor: {
-        type: ControlType.Color,
-        title: "Upload · Icon color",
-        defaultValue: "rgba(111, 61, 74, 0.95)",
-    },
-
-    uploadCardBackground: {
-        type: ControlType.Color,
-        title: "Upload · Sfondo",
-        defaultValue: "rgba(247, 231, 231, 0.85)",
-    },
-    uploadCardBorderColor: {
-        type: ControlType.Color,
-        title: "Upload · Bordo colore",
-        defaultValue: "rgba(148, 92, 106, 0.24)",
-    },
-    uploadCardBorderWidth: {
-        type: ControlType.Number,
-        title: "Upload · Bordo px",
-        defaultValue: 2,
-        min: 0,
-        max: 12,
-        step: 1,
-    },
-    uploadCardBorderStyle: {
-        type: ControlType.Enum,
-        title: "Upload · Bordo stile",
-        options: ["dashed", "dotted", "solid"],
-        optionTitles: ["Dashed", "Dotted", "Solid"],
-        defaultValue: "dashed",
+    uploadActionAriaLabel: {
+        type: ControlType.String,
+        title: "Upload · ARIA",
+        defaultValue: "Carica foto",
     },
 
     refreshIcon: {
@@ -839,19 +768,6 @@ addPropertyControls(WeddingPhotoWall, {
         options: ["refresh-cw", "rotate-ccw"],
         optionTitles: ["RefreshCw", "RotateCcw"],
         defaultValue: "refresh-cw",
-    },
-    refreshIconSize: {
-        type: ControlType.Number,
-        title: "Refresh · Icon size",
-        defaultValue: 18,
-        min: 12,
-        max: 64,
-        step: 1,
-    },
-    refreshIconColor: {
-        type: ControlType.Color,
-        title: "Refresh · Icon color",
-        defaultValue: "rgba(0,0,0,0.8)",
     },
     refreshAriaLabel: {
         type: ControlType.String,
@@ -862,6 +778,81 @@ addPropertyControls(WeddingPhotoWall, {
         type: ControlType.String,
         title: "Refresh · Loading",
         defaultValue: "Carico…",
+    },
+
+    actionBarFill: {
+        type: ControlType.Color,
+        title: "Sticky · Fill",
+        defaultValue: "rgba(243, 244, 246, 0.96)",
+    },
+    actionBarPadding: {
+        type: ControlType.Padding,
+        title: "Sticky · Padding",
+        defaultValue: "12px 20px",
+    },
+    actionBarRadius: {
+        type: ControlType.BorderRadius,
+        title: "Sticky · Radius",
+        defaultValue: "999px",
+    },
+    actionBarBorder: {
+        type: ControlType.Border,
+        title: "Sticky · Border",
+        defaultValue: {
+            borderWidth: 1,
+            borderStyle: "solid",
+            borderColor: "rgba(17, 24, 39, 0.08)",
+        },
+    },
+    actionBarShadow: {
+        type: ControlType.BoxShadow,
+        title: "Sticky · Shadows",
+        defaultValue: "0 12px 32px rgba(15, 23, 42, 0.2)",
+    },
+    actionBarGap: {
+        type: ControlType.Number,
+        title: "Sticky · Gap",
+        defaultValue: 18,
+        min: 4,
+        max: 28,
+        step: 1,
+    },
+    actionIconColor: {
+        type: ControlType.Color,
+        title: "Sticky · Icon color",
+        defaultValue: "rgba(55, 65, 81, 0.95)",
+    },
+    actionIconSize: {
+        type: ControlType.Number,
+        title: "Sticky · Icon size",
+        defaultValue: 30,
+        min: 14,
+        max: 64,
+        step: 1,
+    },
+    actionBarInsetX: {
+        type: ControlType.Number,
+        title: "Sticky · Side inset",
+        defaultValue: 18,
+        min: 0,
+        max: 64,
+        step: 1,
+    },
+    actionBarBottom: {
+        type: ControlType.Number,
+        title: "Sticky · Bottom",
+        defaultValue: 18,
+        min: 0,
+        max: 140,
+        step: 1,
+    },
+    actionBarZIndex: {
+        type: ControlType.Number,
+        title: "Sticky · Z Index",
+        defaultValue: 1100,
+        min: 0,
+        max: 999999,
+        step: 1,
     },
 
     errorLabel: {
