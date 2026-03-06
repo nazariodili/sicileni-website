@@ -87,6 +87,8 @@ function getRefreshIcon(name: RefreshIconName) {
 }
 
 export default function WeddingPhotoWall(props: Props) {
+    const PHOTOS_PAGE_SIZE = 18
+
     const {
         workerBaseUrl,
         eventCode,
@@ -145,6 +147,9 @@ export default function WeddingPhotoWall(props: Props) {
     const inputRef = React.useRef<HTMLInputElement | null>(null)
     const successOverlayTimeoutRef = React.useRef<number | null>(null)
     const touchStartXRef = React.useRef<number | null>(null)
+    const loadMoreRef = React.useRef<HTMLDivElement | null>(null)
+
+    const [visibleCount, setVisibleCount] = React.useState(PHOTOS_PAGE_SIZE)
 
     const hasLightbox =
         activeIndex !== null && activeIndex >= 0 && activeIndex < photos.length
@@ -335,6 +340,39 @@ export default function WeddingPhotoWall(props: Props) {
         }
     }, [])
 
+    React.useEffect(() => {
+        setVisibleCount(PHOTOS_PAGE_SIZE)
+    }, [photos.length])
+
+    React.useEffect(() => {
+        const sentinel = loadMoreRef.current
+        if (!sentinel) return
+        if (visibleCount >= photos.length) return
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const first = entries[0]
+                if (!first?.isIntersecting) return
+                setVisibleCount((prev) =>
+                    Math.min(prev + PHOTOS_PAGE_SIZE, photos.length)
+                )
+            },
+            {
+                root: null,
+                rootMargin: "240px",
+                threshold: 0,
+            }
+        )
+
+        observer.observe(sentinel)
+        return () => observer.disconnect()
+    }, [photos.length, visibleCount])
+
+    const visiblePhotos = React.useMemo(
+        () => photos.slice(0, visibleCount),
+        [photos, visibleCount]
+    )
+
 
     const gridTemplateColumns = React.useMemo(() => {
         const c = clamp(columns, 1, 8)
@@ -372,7 +410,32 @@ export default function WeddingPhotoWall(props: Props) {
                     gap,
                 }}
             >
-                {photos.map((p, index) => (
+                <button
+                    style={{
+                        ...styles.uploadCard,
+                        borderRadius: cornerRadius,
+                        color: uploadIconColor,
+                        background: uploadCardBackground,
+                        borderColor: uploadCardBorderColor,
+                        borderWidth: clamp(uploadCardBorderWidth, 0, 12),
+                        borderStyle: uploadCardBorderStyle,
+                        opacity: uploading ? 0.7 : 1,
+                        pointerEvents: uploading ? "none" : "auto",
+                    }}
+                    onClick={handlePickFiles}
+                >
+                    <UploadIcon size={clamp(uploadIconSize, 14, 120)} strokeWidth={1.8} />
+                    <span style={{ ...styles.uploadCardLabel, ...uploadLabelFont }}>
+                        {uploadButtonLabel}
+                    </span>
+                    {uploadHintLabel ? (
+                        <span style={{ ...styles.uploadCardHint, ...uploadHintFont }}>
+                            {uploadHintLabel}
+                        </span>
+                    ) : null}
+                </button>
+
+                {visiblePhotos.map((p, index) => (
                     <button
                         key={p.key}
                         style={{
@@ -407,6 +470,17 @@ export default function WeddingPhotoWall(props: Props) {
                         ) : null}
                     </button>
                 ))}
+
+                {visibleCount < photos.length ? (
+                    <div
+                        ref={loadMoreRef}
+                        style={{
+                            ...styles.loadMoreTrigger,
+                            gridColumn: "1 / -1",
+                        }}
+                        aria-hidden="true"
+                    />
+                ) : null}
             </div>
 
             <div
@@ -599,6 +673,27 @@ const styles: Record<string, React.CSSProperties> = {
         lineHeight: 1.4,
     },
     grid: { width: "100%", display: "grid" },
+    loadMoreTrigger: {
+        width: "100%",
+        height: 1,
+        pointerEvents: "none",
+    },
+    uploadCard: {
+        appearance: "none",
+        border: "2px dashed rgba(148, 92, 106, 0.24)",
+        background: "rgba(247, 231, 231, 0.85)",
+        cursor: "pointer",
+        aspectRatio: "1 / 1",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 14,
+        padding: "24px 20px",
+        textAlign: "center",
+    },
+    uploadCardLabel: { margin: 0 },
+    uploadCardHint: { margin: 0, opacity: 0.85 },
     card: {
         appearance: "none",
         border: "1px solid rgba(0,0,0,0.10)",

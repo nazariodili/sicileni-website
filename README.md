@@ -17,6 +17,7 @@ Contiene i componenti custom da usare nel progetto Framer.
   - UI aggiornata: action bar sempre sticky bottom con props Framer dedicate (Fill, Padding, Radius, Border, Shadows, Z Index) per styling e UX.
   - Overlay gallery completamente ridisegnato: navigazione foto con frecce, tastiera (← → Esc) e swipe touch.
   - Il lightbox mostra ora l'immagine senza riquadro quadrato forzato, con visualizzazione fluida in full viewport.
+  - Lazy loading progressivo della galleria: rendering iniziale a blocchi e caricamento automatico di altre foto durante lo scroll.
 - `framer-site/README.md`
 
 ### Come usarlo
