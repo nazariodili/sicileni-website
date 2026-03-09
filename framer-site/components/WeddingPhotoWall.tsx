@@ -150,7 +150,7 @@ function getThumbUrl(url: string) {
 }
 
 function getLightboxUrl(url: string) {
-    return appendImageParams(url, { w: 600, q: 85 })
+    return appendImageParams(url, { w: 1400, q: 85 })
 }
 
 function getDownloadUrl(url: string) {
