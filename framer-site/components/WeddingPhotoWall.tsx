@@ -147,7 +147,7 @@ function appendImageParams(
 }
 
 function getThumbUrl(url: string) {
-    return appendImageParams(url, { w: 400, q: 78 })
+    return appendImageParams(url, { w: 500, q: 60 })
 }
 
 function getLightboxUrl(url: string) {
@@ -212,8 +212,7 @@ export default function WeddingPhotoWall(props: Props) {
     const [photos, setPhotos] = React.useState<PhotoItem[]>([])
     const [loading, setLoading] = React.useState(false)
     const [uploading, setUploading] = React.useState(false)
-    const [uploadProgressPercent, setUploadProgressPercent] =
-        React.useState(0)
+    const [uploadProgressPercent, setUploadProgressPercent] = React.useState(0)
     const [error, setError] = React.useState<string | null>(null)
 
     const [activeIndex, setActiveIndex] = React.useState<number | null>(null)
@@ -648,7 +647,8 @@ export default function WeddingPhotoWall(props: Props) {
                             ...styles.stickyActionButton,
                             color: actionIconColor,
                             opacity: loading || uploading ? 0.6 : 1,
-                            pointerEvents: loading || uploading ? "none" : "auto",
+                            pointerEvents:
+                                loading || uploading ? "none" : "auto",
                         }}
                         onClick={fetchPhotos}
                         aria-label={
@@ -670,7 +670,11 @@ export default function WeddingPhotoWall(props: Props) {
                             <div style={uploadProgressStyle}>
                                 <div style={styles.uploadProgressInner}>
                                     <Square
-                                        size={clamp(actionIconSize * 0.4, 10, 28)}
+                                        size={clamp(
+                                            actionIconSize * 0.4,
+                                            10,
+                                            28
+                                        )}
                                         strokeWidth={2.4}
                                         fill="currentColor"
                                     />
@@ -822,7 +826,7 @@ WeddingPhotoWall.defaultProps = {
     maxFilesPerBatch: 20,
     maxFileMB: 15,
     newestFirst: true,
-    lazyLoadBatchSize: 18,
+    lazyLoadBatchSize: 8,
     canvasPreviewLimit: 24,
     successOverlayDurationMs: 2000,
     successOverlayColor: "rgba(187, 247, 208, 0.58)",
@@ -1195,7 +1199,7 @@ addPropertyControls(WeddingPhotoWall, {
     lazyLoadBatchSize: {
         type: ControlType.Number,
         title: "Lazy · Batch",
-        defaultValue: 18,
+        defaultValue: 8,
         min: 1,
         max: 120,
         step: 1,
