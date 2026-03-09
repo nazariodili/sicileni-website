@@ -22,6 +22,7 @@ Contiene i componenti custom da usare nel progetto Framer.
   - Nuovo limite preview canvas Framer (`Canvas · Max foto`) per ridurre il carico in editing mostrando solo le prime N immagini nel canvas.
   - Rimossa la card/cella di upload fissa dalla griglia foto; l'upload resta disponibile solo nella action bar sticky.
   - Nel lightbox è disponibile un pulsante download per salvare la foto aperta in dimensione originale: il download viene forzato in full size tramite query `?download=1`.
+  - Durante upload foto in corso, il pulsante refresh della action bar viene sostituito da un indicatore circolare di avanzamento percentuale (con icona stop centrale) per feedback immediato sul caricamento.
 - `framer-site/README.md`
 
 ### Come usarlo

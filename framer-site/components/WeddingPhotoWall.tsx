@@ -9,6 +9,7 @@ import {
     PlusSquare,
     RefreshCw,
     RotateCcw,
+    Square,
     Upload,
     X,
 } from "lucide-react"
@@ -211,6 +212,8 @@ export default function WeddingPhotoWall(props: Props) {
     const [photos, setPhotos] = React.useState<PhotoItem[]>([])
     const [loading, setLoading] = React.useState(false)
     const [uploading, setUploading] = React.useState(false)
+    const [uploadProgressPercent, setUploadProgressPercent] =
+        React.useState(0)
     const [error, setError] = React.useState<string | null>(null)
 
     const [activeIndex, setActiveIndex] = React.useState<number | null>(null)
@@ -356,18 +359,27 @@ export default function WeddingPhotoWall(props: Props) {
         if (validated.length === 0) return
 
         setUploading(true)
+        setUploadProgressPercent(0)
         if (validationErrors.length === 0) setError(null)
 
         const uploadedKeys = new Set<string>()
         const uploadedUrls = new Set<string>()
 
         try {
+            const total = validated.length
+            let completed = 0
+
             for (const f of validated) {
                 const uploadResult = await uploadViaWorker(f)
                 if (typeof uploadResult?.key === "string")
                     uploadedKeys.add(uploadResult.key)
                 if (typeof uploadResult?.url === "string")
                     uploadedUrls.add(uploadResult.url)
+
+                completed += 1
+                setUploadProgressPercent(
+                    Math.round((completed / Math.max(total, 1)) * 100)
+                )
             }
 
             const refreshedPhotos = (await fetchPhotos()) || []
@@ -411,6 +423,7 @@ export default function WeddingPhotoWall(props: Props) {
             setError(e?.message || "Upload failed")
         } finally {
             setUploading(false)
+            setUploadProgressPercent(0)
             if (inputRef.current) inputRef.current.value = ""
         }
     }
@@ -506,6 +519,14 @@ export default function WeddingPhotoWall(props: Props) {
     const actionBarShadowCss = React.useMemo(
         () => toShadowCss(actionBarShadow),
         [actionBarShadow]
+    )
+    const uploadProgressValue = clamp(uploadProgressPercent, 0, 100)
+    const uploadProgressStyle = React.useMemo<React.CSSProperties>(
+        () => ({
+            ...styles.uploadProgress,
+            background: `conic-gradient(currentColor ${uploadProgressValue * 3.6}deg, rgba(255,255,255,0.34) 0deg)`,
+        }),
+        [uploadProgressValue]
     )
 
     return (
@@ -626,27 +647,49 @@ export default function WeddingPhotoWall(props: Props) {
                         style={{
                             ...styles.stickyActionButton,
                             color: actionIconColor,
-                            opacity: loading ? 0.6 : 1,
-                            pointerEvents: loading ? "none" : "auto",
+                            opacity: loading || uploading ? 0.6 : 1,
+                            pointerEvents: loading || uploading ? "none" : "auto",
                         }}
                         onClick={fetchPhotos}
                         aria-label={
-                            loading ? refreshingLabel : refreshAriaLabel
+                            uploading
+                                ? `Upload foto in corso (${uploadProgressValue}%)`
+                                : loading
+                                  ? refreshingLabel
+                                  : refreshAriaLabel
                         }
-                        title={loading ? refreshingLabel : refreshAriaLabel}
+                        title={
+                            uploading
+                                ? `Upload foto in corso (${uploadProgressValue}%)`
+                                : loading
+                                  ? refreshingLabel
+                                  : refreshAriaLabel
+                        }
                     >
-                        <RefreshIcon
-                            size={clamp(actionIconSize, 14, 64)}
-                            strokeWidth={2.1}
-                            style={
-                                loading
-                                    ? {
-                                          animation:
-                                              "weddingPhotoWallSpin 1s linear infinite",
-                                      }
-                                    : undefined
-                            }
-                        />
+                        {uploading ? (
+                            <div style={uploadProgressStyle}>
+                                <div style={styles.uploadProgressInner}>
+                                    <Square
+                                        size={clamp(actionIconSize * 0.4, 10, 28)}
+                                        strokeWidth={2.4}
+                                        fill="currentColor"
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <RefreshIcon
+                                size={clamp(actionIconSize, 14, 64)}
+                                strokeWidth={2.1}
+                                style={
+                                    loading
+                                        ? {
+                                              animation:
+                                                  "weddingPhotoWallSpin 1s linear infinite",
+                                          }
+                                        : undefined
+                                }
+                            />
+                        )}
                     </button>
                 </div>
             </div>
@@ -963,6 +1006,21 @@ const styles: Record<string, React.CSSProperties> = {
         width: 44,
         height: 44,
         borderRadius: 12,
+        display: "grid",
+        placeItems: "center",
+    },
+    uploadProgress: {
+        width: 38,
+        height: 38,
+        borderRadius: 999,
+        display: "grid",
+        placeItems: "center",
+    },
+    uploadProgressInner: {
+        width: 30,
+        height: 30,
+        borderRadius: 999,
+        background: "rgba(0,0,0,0.12)",
         display: "grid",
         placeItems: "center",
     },
