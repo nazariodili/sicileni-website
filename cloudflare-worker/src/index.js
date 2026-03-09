@@ -81,27 +81,52 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n))
 }
 
-async function handleListPhotos(request, env) {
-  const listed = await env.PHOTOS.list({
-    prefix: "uploads/",
-    limit: 300,
-  })
+async function readPhotoIndex(env) {
+  const obj = await env.PHOTOS.get("indexes/photos.json")
 
-  const base = new URL(request.url).origin
-  const objects = listed.objects
-  const photos = []
-
-  for (let i = objects.length - 1; i >= 0; i--) {
-    const key = objects[i]?.key
-    if (!key) continue
-
-    photos.push({
-      key,
-      url: `${base}/img/${encodeURIComponent(key)}`,
-    })
+  if (!obj) {
+    return { photos: [] }
   }
 
-  return json({ photos })
+  try {
+    const data = await obj.json()
+    return {
+      photos: Array.isArray(data?.photos) ? data.photos : [],
+    }
+  } catch {
+    return { photos: [] }
+  }
+}
+
+async function writePhotoIndex(env, photos) {
+  await env.PHOTOS.put(
+    "indexes/photos.json",
+    JSON.stringify({ photos }),
+    {
+      httpMetadata: {
+        contentType: "application/json",
+      },
+    }
+  )
+}
+
+async function handleListPhotos(request, env) {
+  const url = new URL(request.url)
+
+  const offset = Number(url.searchParams.get("offset") || 0)
+  const limit = 60
+
+  const index = await readPhotoIndex(env)
+
+  const photos = index.photos.slice(offset, offset + limit)
+
+  const nextOffset =
+    offset + limit < index.photos.length ? offset + limit : null
+
+  return json({
+    photos,
+    nextOffset,
+  })
 }
 
 async function handleUploadViaWorker(request, env) {
@@ -147,6 +172,21 @@ async function handleUploadViaWorker(request, env) {
   })
 
   const base = new URL(request.url).origin
+
+const index = await readPhotoIndex(env)
+
+index.photos.unshift({
+  key,
+  url: `${base}/img/${encodeURIComponent(key)}`,
+  uploaded: Date.now(),
+})
+
+/* limita dimensione indice */
+if (index.photos.length > 1000) {
+  index.photos = index.photos.slice(0, 1000)
+}
+
+await writePhotoIndex(env, index.photos)
 
   return json({
     key,
