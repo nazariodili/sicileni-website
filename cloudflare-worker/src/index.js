@@ -1,15 +1,15 @@
 /**
- * Cloudflare Worker – Wedding Photos (R2) + image resizing
+ * Cloudflare Worker – Wedding Photos (R2) + Images binding
  *
  * Routes:
  * - GET  /api/photos
  * - POST /api/upload
- * - GET  /img/<key>?w=400
+ * - GET  /img/<key>?w=400&q=78
  *
  * Notes:
  * - Originals stay in R2
- * - Worker serves resized versions through Cloudflare image resizing
- * - No Cloudflare Images product required
+ * - Resizing is done with env.IMAGES binding
+ * - No internal resize subrequest needed
  */
 
 export default {
@@ -160,69 +160,59 @@ async function handleServeImage(request, env, key) {
   const url = new URL(request.url)
 
   const requestedWidth = Number(url.searchParams.get("w") || 0)
-  const downloadRequested = url.searchParams.get("download") === "1"
   const requestedQuality = Number(url.searchParams.get("q") || 85)
+  const downloadRequested = url.searchParams.get("download") === "1"
 
   const width = requestedWidth > 0 ? clamp(requestedWidth, 100, 2400) : null
   const quality = clamp(requestedQuality || 85, 50, 90)
 
-  const headers = new Headers()
-  obj.writeHttpMetadata(headers)
+  const originalHeaders = new Headers()
+  obj.writeHttpMetadata(originalHeaders)
 
-  headers.set("Cache-Control", "public, max-age=31536000, immutable")
-  for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v)
+  for (const [k, v] of Object.entries(corsHeaders())) originalHeaders.set(k, v)
+  originalHeaders.set("Cache-Control", "public, max-age=31536000, immutable")
 
-  if (downloadRequested) {
-    const fileName = key.split("/").pop() || "photo"
-    headers.set("Content-Disposition", `attachment; filename="${fileName}"`)
-  }
+  const originalContentType =
+    originalHeaders.get("Content-Type") || "image/jpeg"
 
-  const contentType =
-    headers.get("Content-Type") || "image/jpeg"
+  // Download originale o immagine senza width richiesta
+  if (downloadRequested || !width) {
+    if (downloadRequested) {
+      const fileName = key.split("/").pop() || "photo"
+      originalHeaders.set(
+        "Content-Disposition",
+        `attachment; filename="${fileName}"`
+      )
+    }
 
-  // Se non viene richiesta una width, servi l'originale
-  if (!width) {
     return new Response(obj.body, {
       status: 200,
-      headers,
+      headers: originalHeaders,
     })
   }
 
-  // Per image resizing serve fetch() di una URL pubblica.
-  // Quindi richiamiamo internamente la stessa immagine originale con un flag.
-  const origin = url.origin
-  const originalUrl = `${origin}/img/${encodeURIComponent(key)}?original=1`
+  // Trasformazione direttamente dai byte letti da R2
+  const outputFormat = "image/webp"
 
-  // Se c'è original=1, servi l'originale e non entrare di nuovo nel resize loop
-  if (url.searchParams.get("original") === "1") {
-    return new Response(obj.body, {
-      status: 200,
-      headers,
-    })
-  }
-
-  const resizedResponse = await fetch(originalUrl, {
-    cf: {
-      image: {
+  const transformed = (
+    await env.IMAGES.input(obj.body)
+      .transform({
         width,
-        quality,
         fit: "scale-down",
-        metadata: "none",
-        format: "webp",
-        dpr: 2
-      },
-    },
-  })
+      })
+      .output({
+        format: outputFormat,
+        quality,
+      })
+  ).response()
 
-  const resizedHeaders = new Headers(resizedResponse.headers)
-  for (const [k, v] of Object.entries(corsHeaders())) resizedHeaders.set(k, v)
-  resizedHeaders.set("Cache-Control", "public, max-age=31536000, immutable")
-  if (!resizedHeaders.get("Content-Type")) {
-    resizedHeaders.set("Content-Type", contentType)
-  }
+  const headers = new Headers(transformed.headers)
+  for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v)
+  headers.set("Cache-Control", "public, max-age=31536000, immutable")
+  headers.set("Content-Type", outputFormat)
 
-  return new Response(resizedResponse.body, {
-    status: resizedResponse.status,
-    headers: resizedHeaders,
+  return new Response(transformed.body, {
+    status: transformed.status,
+    headers,
   })
 }
