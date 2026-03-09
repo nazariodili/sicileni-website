@@ -29,10 +29,10 @@ export default {
         return await handleUploadViaWorker(request, env)
       }
 
-      if (url.pathname.startsWith("/img/") && request.method === "GET") {
-        const key = decodeURIComponent(url.pathname.replace("/img/", ""))
-        return await handleServeImage(request, env, key)
-      }
+if (url.pathname.startsWith("/img/") && request.method === "GET") {
+  const key = decodeURIComponent(url.pathname.replace("/img/", ""))
+  return await handleServeImage(request, env, ctx, key)
+}
 
       return new Response("Not found", {
         status: 404,
@@ -41,7 +41,8 @@ export default {
           "Content-Type": "text/plain",
         },
       })
-    } catch (e) {
+     } catch (e) {
+      console.error("Worker error:", e)
       return new Response("Internal error", {
         status: 500,
         headers: {
@@ -81,19 +82,24 @@ function clamp(n, min, max) {
 }
 
 async function handleListPhotos(request, env) {
-  const listed = await env.PHOTOS.list({ prefix: "uploads/" })
-
-  const keys = listed.objects
-    .map((o) => o.key)
-    .filter(Boolean)
-    .reverse()
+  const listed = await env.PHOTOS.list({
+    prefix: "uploads/",
+    limit: 300,
+  })
 
   const base = new URL(request.url).origin
+  const objects = listed.objects
+  const photos = []
 
-  const photos = keys.map((key) => ({
-    key,
-    url: `${base}/img/${encodeURIComponent(key)}`,
-  }))
+  for (let i = objects.length - 1; i >= 0; i--) {
+    const key = objects[i]?.key
+    if (!key) continue
+
+    photos.push({
+      key,
+      url: `${base}/img/${encodeURIComponent(key)}`,
+    })
+  }
 
   return json({ photos })
 }
@@ -148,15 +154,7 @@ async function handleUploadViaWorker(request, env) {
   })
 }
 
-async function handleServeImage(request, env, key) {
-  const obj = await env.PHOTOS.get(key)
-  if (!obj) {
-    return new Response("Not found", {
-      status: 404,
-      headers: corsHeaders(),
-    })
-  }
-
+async function handleServeImage(request, env, ctx, key) {
   const url = new URL(request.url)
 
   const requestedWidth = Number(url.searchParams.get("w") || 0)
@@ -166,20 +164,30 @@ async function handleServeImage(request, env, key) {
   const width = requestedWidth > 0 ? clamp(requestedWidth, 100, 2400) : null
   const quality = clamp(requestedQuality || 85, 50, 90)
 
-  const originalHeaders = new Headers()
-  obj.writeHttpMetadata(originalHeaders)
-
-  for (const [k, v] of Object.entries(corsHeaders())) originalHeaders.set(k, v)
-  originalHeaders.set("Cache-Control", "public, max-age=31536000, immutable")
-
-  const originalContentType =
-    originalHeaders.get("Content-Type") || "image/jpeg"
-
-  // Download originale o immagine senza width richiesta
+  // Se è download o immagine originale, niente transform e niente cache custom
   if (downloadRequested || !width) {
+    const obj = await env.PHOTOS.get(key)
+    if (!obj) {
+      return new Response("Not found", {
+        status: 404,
+        headers: corsHeaders(),
+      })
+    }
+
+const headers = new Headers()
+obj.writeHttpMetadata(headers)
+
+// fallback Content-Type se manca
+if (!headers.get("Content-Type")) {
+  headers.set("Content-Type", "image/jpeg")
+}
+
+for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v)
+headers.set("Cache-Control", "public, max-age=31536000, immutable")
+
     if (downloadRequested) {
       const fileName = key.split("/").pop() || "photo"
-      originalHeaders.set(
+      headers.set(
         "Content-Disposition",
         `attachment; filename="${fileName}"`
       )
@@ -187,11 +195,45 @@ async function handleServeImage(request, env, key) {
 
     return new Response(obj.body, {
       status: 200,
-      headers: originalHeaders,
+      headers,
     })
   }
 
-  // Trasformazione direttamente dai byte letti da R2
+  // Cache key separata per ogni variante (w/q)
+  const cacheUrl = new URL(request.url)
+  cacheUrl.pathname = `/__image_cache__/${encodeURIComponent(key)}`
+  cacheUrl.searchParams.set("w", String(width))
+  cacheUrl.searchParams.set("q", String(quality))
+  cacheUrl.searchParams.set("format", "webp")
+
+  const cacheKey = new Request(cacheUrl.toString(), {
+    method: "GET",
+  })
+
+  const cache = caches.default
+
+  // 1) prova cache
+  let cached = await cache.match(cacheKey)
+  if (cached) {
+    const cachedHeaders = new Headers(cached.headers)
+    for (const [k, v] of Object.entries(corsHeaders())) cachedHeaders.set(k, v)
+    cachedHeaders.set("X-Image-Cache", "HIT")
+
+    return new Response(cached.body, {
+      status: cached.status,
+      headers: cachedHeaders,
+    })
+  }
+
+  // 2) se non c'è in cache, leggi da R2
+  const obj = await env.PHOTOS.get(key)
+  if (!obj) {
+    return new Response("Not found", {
+      status: 404,
+      headers: corsHeaders(),
+    })
+  }
+
   const outputFormat = "image/webp"
 
   const transformed = (
@@ -210,9 +252,16 @@ async function handleServeImage(request, env, key) {
   for (const [k, v] of Object.entries(corsHeaders())) headers.set(k, v)
   headers.set("Cache-Control", "public, max-age=31536000, immutable")
   headers.set("Content-Type", outputFormat)
+  headers.set("X-Image-Cache", "MISS")
 
-  return new Response(transformed.body, {
+  const responseToCache = new Response(transformed.body, {
     status: transformed.status,
     headers,
   })
+
+  if (transformed.ok) {
+    ctx.waitUntil(cache.put(cacheKey, responseToCache.clone()))
+  }
+
+  return responseToCache
 }
