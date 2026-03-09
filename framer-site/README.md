@@ -31,3 +31,4 @@ Questa cartella contiene i code component da importare in Framer.
 14. Puoi controllare la soglia del lazy loading da Framer con la property control `Lazy · Batch` (numero di foto iniziali e incrementi successivi ad ogni trigger di scroll).
 15. Nuova property control `Canvas · Max foto`: in preview dentro il canvas di Framer puoi limitare quante immagini renderizzare (es. 24) per evitare rallentamenti durante l'editing.
 16. Nel lightbox puoi scaricare la foto aperta in dimensione originale tramite il pulsante download (icona Lucide `Download`), con download forzato in full size via query `?download=1`.
+17. Durante l'upload multiplo, il pulsante refresh nella action bar mostra un indicatore circolare di avanzamento (0–100%) con icona stop, così l'utente vede che il caricamento foto è in corso.
